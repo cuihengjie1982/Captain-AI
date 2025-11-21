@@ -343,94 +343,97 @@ const Solution: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-200 bg-white">
         
         {/* Video Player Container */}
+        {/* UPDATE: Changed container to limit max height and center video to avoid it taking up too much vertical space */}
         <div 
           ref={playerContainerRef}
-          className={`bg-black w-full relative group shadow-lg z-30 transition-all ${isFullScreen ? 'fixed inset-0 z-50 h-screen' : 'aspect-video'}`}
+          className={`bg-slate-900 w-full relative group shadow-lg z-30 transition-all flex items-center justify-center ${isFullScreen ? 'fixed inset-0 z-50 h-screen' : 'py-0 bg-black'}`}
         >
-          <img 
-            src={currentLesson.thumbnail} 
-            alt={currentLesson.title}
-            className={`w-full h-full object-cover opacity-80 transition-all ${isFullScreen ? 'object-contain' : ''}`}
-          />
-          
-          {/* Custom Controls Overlay */}
-          <div className="absolute inset-0 flex flex-col justify-between transition-opacity duration-300">
+          <div className={`relative overflow-hidden ${isFullScreen ? 'w-full h-full' : 'w-full max-w-5xl aspect-video'}`}>
+            <img 
+              src={currentLesson.thumbnail} 
+              alt={currentLesson.title}
+              className={`w-full h-full object-cover opacity-80 transition-all ${isFullScreen ? 'object-contain' : ''}`}
+            />
             
-            {/* Center Play Button (Only show when not playing or hovering in non-fullscreen) */}
-            <div className="flex-1 flex items-center justify-center group-hover:opacity-100 opacity-0 transition-opacity">
-               <button 
-                 onClick={handlePlayPause}
-                 className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 hover:scale-105 transition-all shadow-xl border border-white/10"
-               >
-                 {isPlaying ? <Pause size={36} className="text-white fill-current" /> : <Play size={36} className="text-white fill-current ml-2" />}
-               </button>
-            </div>
-
-            {/* Bottom Bar */}
-            <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pt-12">
+            {/* Custom Controls Overlay */}
+            <div className="absolute inset-0 flex flex-col justify-between transition-opacity duration-300">
               
-              {/* Progress Bar Row */}
-              <div className="mb-3 flex items-center gap-0">
-                <div 
-                  className="w-full h-1.5 bg-white/30 rounded-full cursor-pointer relative group/progress hover:h-2 transition-all"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percent = x / rect.width;
-                    handleJumpToTime(Math.floor(percent * currentLesson.durationSec));
-                  }}
+              {/* Center Play Button */}
+              <div className="flex-1 flex items-center justify-center group-hover:opacity-100 opacity-0 transition-opacity">
+                <button 
+                  onClick={handlePlayPause}
+                  className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 hover:scale-105 transition-all shadow-xl border border-white/10"
                 >
-                  <div 
-                    className="h-full bg-blue-500 rounded-full relative transition-all" 
-                    style={{ width: `${(currentTime / currentLesson.durationSec) * 100}%` }}
-                  >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover/progress:opacity-100 transition-opacity transform scale-125"></div>
-                  </div>
-                </div>
+                  {isPlaying ? <Pause size={36} className="text-white fill-current" /> : <Play size={36} className="text-white fill-current ml-2" />}
+                </button>
               </div>
 
-              {/* Controls Row */}
-              <div className="flex items-center justify-between text-white">
+              {/* Bottom Bar */}
+              <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pt-12">
                 
-                {/* Left Controls */}
-                <div className="flex items-center gap-4">
-                   <button onClick={handlePlayPause} className="hover:text-blue-400 transition-colors">
-                      {isPlaying ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current" />}
-                   </button>
-                   <span className="text-xs font-medium tracking-wide font-mono">
-                     {formatTime(currentTime)} / {currentLesson.duration}
-                   </span>
+                {/* Progress Bar Row */}
+                <div className="mb-3 flex items-center gap-0">
+                  <div 
+                    className="w-full h-1.5 bg-white/30 rounded-full cursor-pointer relative group/progress hover:h-2 transition-all"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const percent = x / rect.width;
+                      handleJumpToTime(Math.floor(percent * currentLesson.durationSec));
+                    }}
+                  >
+                    <div 
+                      className="h-full bg-blue-500 rounded-full relative transition-all" 
+                      style={{ width: `${(currentTime / currentLesson.durationSec) * 100}%` }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover/progress:opacity-100 transition-opacity transform scale-125"></div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Right Controls */}
-                <div className="flex items-center gap-4 relative">
-                   {/* Speed Control */}
-                   <div className="relative">
-                      <button 
-                        onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                        className="text-xs font-bold hover:bg-white/20 px-2 py-1 rounded transition-colors flex items-center gap-1 w-12 justify-center"
-                      >
-                         {playbackRate}x
-                      </button>
-                      {showSpeedMenu && (
-                        <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur border border-white/10 rounded-lg overflow-hidden flex flex-col text-xs text-white z-50 min-w-[80px] shadow-xl animate-in slide-in-from-bottom-2 fade-in">
-                          {[2.0, 1.5, 1.25, 1.0, 0.8].map(rate => (
-                            <button
-                              key={rate}
-                              onClick={(e) => { e.stopPropagation(); setPlaybackRate(rate); setShowSpeedMenu(false); }}
-                              className={`px-3 py-2 hover:bg-blue-600/50 text-center transition-colors ${playbackRate === rate ? 'text-blue-400 font-bold bg-white/5' : ''}`}
-                            >
-                              {rate.toFixed(1)}x
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                   </div>
+                {/* Controls Row */}
+                <div className="flex items-center justify-between text-white">
+                  
+                  {/* Left Controls */}
+                  <div className="flex items-center gap-4">
+                    <button onClick={handlePlayPause} className="hover:text-blue-400 transition-colors">
+                        {isPlaying ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current" />}
+                    </button>
+                    <span className="text-xs font-medium tracking-wide font-mono">
+                      {formatTime(currentTime)} / {currentLesson.duration}
+                    </span>
+                  </div>
 
-                   {/* Fullscreen Control */}
-                   <button onClick={handleToggleFullScreen} className="hover:text-blue-400 transition-colors">
-                     {isFullScreen ? <Minimize size={20} /> : <Maximize size={20} />}
-                   </button>
+                  {/* Right Controls */}
+                  <div className="flex items-center gap-4 relative">
+                    {/* Speed Control */}
+                    <div className="relative">
+                        <button 
+                          onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                          className="text-xs font-bold hover:bg-white/20 px-2 py-1 rounded transition-colors flex items-center gap-1 w-12 justify-center"
+                        >
+                          {playbackRate}x
+                        </button>
+                        {showSpeedMenu && (
+                          <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur border border-white/10 rounded-lg overflow-hidden flex flex-col text-xs text-white z-50 min-w-[80px] shadow-xl animate-in slide-in-from-bottom-2 fade-in">
+                            {[2.0, 1.5, 1.25, 1.0, 0.8].map(rate => (
+                              <button
+                                key={rate}
+                                onClick={(e) => { e.stopPropagation(); setPlaybackRate(rate); setShowSpeedMenu(false); }}
+                                className={`px-3 py-2 hover:bg-blue-600/50 text-center transition-colors ${playbackRate === rate ? 'text-blue-400 font-bold bg-white/5' : ''}`}
+                              >
+                                {rate.toFixed(1)}x
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+
+                    {/* Fullscreen Control */}
+                    <button onClick={handleToggleFullScreen} className="hover:text-blue-400 transition-colors">
+                      {isFullScreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -65,7 +65,7 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteBlog = (id: string) => {
-    if (confirm('确定删除这篇文章吗？')) {
+    if (window.confirm('确定删除这篇文章吗？')) {
       deleteBlogPost(id);
       refreshData();
     }
@@ -165,7 +165,7 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteLesson = (id: string) => {
-    if (confirm('确定删除这门课程吗？')) {
+    if (window.confirm('确定删除这门课程吗？')) {
       deleteLesson(id);
       refreshData();
     }
@@ -277,7 +277,7 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteCategory = (id: string) => {
-    if (confirm('确定删除此分类及其所有文件吗？')) {
+    if (window.confirm('确定删除此分类及其所有文件吗？')) {
       deleteKnowledgeCategory(id);
       refreshData();
     }
@@ -370,7 +370,7 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteProject = (id: string) => {
-    if (confirm('确定删除此项目吗？')) {
+    if (window.confirm('确定删除此项目吗？')) {
       deleteDashboardProject(id);
       refreshData();
     }
