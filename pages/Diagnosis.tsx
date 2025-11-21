@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload } from '../types';
 import { 
   ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
-  X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock
+  X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock, Crown
 } from 'lucide-react';
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
@@ -39,7 +40,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
 };
 
 // Helper Component for Knowledge Base Items
-const ResourceItem: React.FC<{ title: string; type: 'xlsx' | 'pdf' | 'ppt' | 'doc'; size: string }> = ({ title, type, size }) => {
+const ResourceItem: React.FC<{ title: string; type: 'xlsx' | 'pdf' | 'ppt' | 'doc'; size: string; locked?: boolean }> = ({ title, type, size, locked }) => {
   const getIcon = () => {
     switch(type) {
       case 'xlsx': return <FileSpreadsheet size={20} className="text-green-600" />;
@@ -50,13 +51,13 @@ const ResourceItem: React.FC<{ title: string; type: 'xlsx' | 'pdf' | 'ppt' | 'do
   };
   
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group bg-white">
+    <div className={`flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white transition-all ${locked ? 'opacity-80' : 'hover:border-blue-300 hover:bg-blue-50 cursor-pointer group'}`}>
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-slate-50 rounded border border-slate-100 flex items-center justify-center shadow-sm group-hover:bg-white transition-colors">
+        <div className={`w-8 h-8 bg-slate-50 rounded border border-slate-100 flex items-center justify-center shadow-sm transition-colors ${!locked ? 'group-hover:bg-white' : ''}`}>
            {getIcon()}
         </div>
         <div>
-          <div className="text-sm font-medium text-slate-700 group-hover:text-blue-700 transition-colors">{title}</div>
+          <div className={`text-sm font-medium text-slate-700 transition-colors ${!locked ? 'group-hover:text-blue-700' : ''}`}>{title}</div>
           <div className="text-xs text-slate-400 uppercase flex items-center gap-1">
             <span className="font-semibold">{type}</span>
             <span>•</span>
@@ -64,8 +65,8 @@ const ResourceItem: React.FC<{ title: string; type: 'xlsx' | 'pdf' | 'ppt' | 'do
           </div>
         </div>
       </div>
-      <div className="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 group-hover:bg-blue-100 group-hover:text-blue-600 transition-all">
-        <Download size={16} />
+      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 transition-all ${!locked ? 'group-hover:bg-blue-100 group-hover:text-blue-600' : ''}`}>
+        {locked ? <Lock size={16} className="text-slate-400" /> : <Download size={16} />}
       </div>
     </div>
   );
@@ -89,14 +90,8 @@ const Diagnosis: React.FC = () => {
   // Expert Mode State
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success'>('idle');
   const [uploadedFileName, setUploadedFileName] = useState('');
-  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false); // Controls the Knowledge Base Modal
-  const [showContactModal, setShowContactModal] = useState(false); // Controls the WeChat QR Modal
-
-  // Payment Gate State
   const [showPaymentGate, setShowPaymentGate] = useState(false);
-  const [paymentProblemInput, setPaymentProblemInput] = useState('');
-  const [paymentAttachment, setPaymentAttachment] = useState<string | null>(null);
-
+  
   // Knowledge Base
   const [knowledgeCategories, setKnowledgeCategories] = useState<KnowledgeCategory[]>([]);
 
@@ -186,7 +181,6 @@ const Diagnosis: React.FC = () => {
       const lowerInput = input.toLowerCase();
 
       if (step === 0) {
-        // Fallback generic responses for manual chat start
         if (lowerInput.includes('钱') || lowerInput.includes('工资') || lowerInput.includes('薪')) {
            aiResponseText = "我明白薪资是个问题。您觉得是内部公平性问题，还是外部市场给的实在太多？";
         } else {
@@ -222,7 +216,6 @@ const Diagnosis: React.FC = () => {
             const prompt = `请为以下对话生成一个简短的摘要（100字以内），总结用户的主要问题和当前的诊断进展：\n\n${conversationHistory}`;
             summary = await sendMessageToAI(chat, prompt);
         } else {
-            // Fallback if API key missing
             summary = "基于当前对话，我们已探讨了您的核心运营挑战。建议继续明确关键痛点，以便匹配最佳解决方案。";
         }
         
@@ -240,7 +233,6 @@ const Diagnosis: React.FC = () => {
         }]);
     } finally {
         setIsTyping(false);
-        // Scroll to bottom
         setTimeout(scrollToBottom, 100);
     }
   };
@@ -260,14 +252,11 @@ const Diagnosis: React.FC = () => {
       setUploadedFileName(file.name);
       setUploadStatus('uploading');
       
-      // Get user info
       const currentUser = JSON.parse(localStorage.getItem('captainUser') || '{}');
 
-      // Simulate upload delay
       setTimeout(() => {
         setUploadStatus('success');
         
-        // Save to admin service
         const newUpload: UserUpload = {
           id: Date.now().toString(),
           fileName: file.name,
@@ -284,22 +273,6 @@ const Diagnosis: React.FC = () => {
     }
   };
 
-  const getCategoryStyles = (color: string) => {
-    const styles: Record<string, string> = {
-      blue: 'text-blue-600 bg-blue-100',
-      emerald: 'text-emerald-600 bg-emerald-100',
-      orange: 'text-orange-600 bg-orange-100',
-      purple: 'text-purple-600 bg-purple-100',
-      pink: 'text-pink-600 bg-pink-100',
-      indigo: 'text-indigo-600 bg-indigo-100',
-      cyan: 'text-cyan-600 bg-cyan-100',
-      teal: 'text-teal-600 bg-teal-100',
-      rose: 'text-rose-600 bg-rose-100',
-      slate: 'text-slate-600 bg-slate-200',
-    };
-    return styles[color] || styles['blue'];
-  };
-
   return (
     <div className="h-full flex flex-col bg-white relative">
       {/* Sticky Header with Tabs */}
@@ -312,7 +285,6 @@ const Diagnosis: React.FC = () => {
             <p className="text-sm text-slate-500">主题：{location.state?.initialIssue || '运营诊断'}</p>
           </div>
           
-          {/* Finish Button (Only show in AI mode when ready) */}
           {activeTab === 'ai' && step >= 100 && (
             <button 
               onClick={() => navigate(AppRoute.SOLUTION)}
@@ -436,7 +408,7 @@ const Diagnosis: React.FC = () => {
                 <p className="text-slate-500 mt-2">当 AI 无法解决复杂问题时，我们的行业专家可以为您提供深度分析。</p>
               </div>
 
-              {/* Step 1: Download (Updated to Open Payment Gate) */}
+              {/* Step 1: Download */}
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6">
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
                   <BookOpen size={28} />
@@ -502,230 +474,125 @@ const Diagnosis: React.FC = () => {
                  <div className="p-6 min-h-[160px] flex flex-col justify-center">
                     {uploadStatus === 'success' ? (
                       <div className="text-center animate-fade-in">
-                        <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-full mb-3">
-                          <CheckCircle size={24} />
-                        </div>
-                        <h4 className="text-slate-900 font-medium">报告已提交</h4>
-                        <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
-                          专家组已收到您的数据。我们将进行人工分析，预计将在 <strong>24小时内</strong> 发送详细诊断书至您的注册邮箱，并在此处同步简报。
-                        </p>
-                        <div className="mt-6 p-3 bg-slate-50 rounded border border-slate-100 text-xs text-slate-400">
-                          工单号: #DG-20240521-0892 | 状态: <span className="text-orange-500 font-medium">排队分析中</span>
-                        </div>
+                        <div className="text-green-600 font-bold text-lg mb-1">已收到您的诊断材料</div>
+                        <p className="text-slate-500 text-sm">专家团队将在 24 小时内分析完毕，并发送报告至您的邮箱。</p>
                       </div>
                     ) : (
-                      <div className="text-center text-slate-400">
-                        <p>暂无回复。</p>
-                        <p className="text-sm mt-1">请先完成上方步骤，上传您的诊断数据。</p>
-                      </div>
+                       <div className="text-center text-slate-400">
+                         <Mail size={32} className="mx-auto mb-2 opacity-20" />
+                         <p className="text-sm">请先完成上方文件上传，专家回复将在此显示</p>
+                       </div>
                     )}
                  </div>
               </div>
-
             </div>
           </div>
         )}
-      </div>
 
-      {/* Payment Gate Modal */}
-      {showPaymentGate && (
-        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 relative">
-             <button 
-               onClick={() => setShowPaymentGate(false)}
-               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10"
-             >
-               <X size={24} />
-             </button>
-             
-             <div className="p-6 pt-8">
-               <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Lock size={24} />
-                  </div>
-                  <h2 className="text-xl font-bold text-slate-900">解锁专家级诊断模版库</h2>
-                  <p className="text-sm text-slate-500 mt-1">请完善信息并扫码支付以获取下载权限</p>
-               </div>
+        {/* --- MODAL: Payment Gate (Download Templates) --- */}
+        {showPaymentGate && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
+                 <button 
+                   onClick={() => setShowPaymentGate(false)}
+                   className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors z-10"
+                 >
+                   <X size={20} />
+                 </button>
 
-               <div className="space-y-5">
-                  <div>
-                     <label className="block text-sm font-bold text-slate-700 mb-2">
-                       当前具体要解决的问题 <span className="text-red-500">*</span>
-                     </label>
-                     <div className="relative">
-                        <textarea 
-                            value={paymentProblemInput}
-                            onChange={(e) => setPaymentProblemInput(e.target.value)}
-                            placeholder="请详细描述您遇到的运营难题，以便我们为您推荐最合适的工具..."
-                            className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm min-h-[120px] resize-none bg-slate-50 pb-12"
-                        />
-                        <div className="absolute bottom-3 right-3">
-                           <input 
-                             type="file" 
-                             id="payment-attachment-upload"
-                             className="hidden"
-                             accept=".xlsx,.xls,.doc,.docx,.pdf"
-                             onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) setPaymentAttachment(file.name);
-                             }}
-                           />
-                           <label 
-                             htmlFor="payment-attachment-upload"
-                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-medium text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer transition-all"
-                           >
-                             <Upload size={14} />
-                             上传数据/文档
-                           </label>
-                        </div>
-                     </div>
-                     
-                     {paymentAttachment && (
-                        <div className="mt-2 flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg border border-emerald-100 w-fit animate-in fade-in slide-in-from-top-1">
-                           <FileText size={14} />
-                           <span className="font-medium max-w-[200px] truncate">已添加: {paymentAttachment}</span>
+                 <div className="flex h-full flex-col md:flex-row">
+                    {/* Left: Premium Intro */}
+                    <div className="w-full md:w-2/5 bg-slate-900 text-white p-8 flex flex-col relative overflow-hidden">
+                       {/* Background decoration */}
+                       <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-3xl opacity-10 -mr-16 -mt-16"></div>
+                       <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600 rounded-full blur-3xl opacity-10 -ml-16 -mb-16"></div>
+                       
+                       <div className="relative z-10 flex flex-col h-full">
+                           <div className="mb-8">
+                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-yellow-500 to-amber-600 text-white rounded-full text-xs font-bold mb-6 shadow-lg shadow-orange-900/20 ring-1 ring-white/20">
+                                 <Crown size={14} className="fill-current" /> VIP 资源库
+                              </div>
+                              <h2 className="text-3xl font-bold leading-tight mb-4">解锁专业级<br/>管理工具库</h2>
+                              <p className="text-slate-400 text-sm leading-relaxed">
+                                 立即获取 50+ 份世界 500 强呼叫中心正在使用的标准化管理表格、流程图与 PPT 模版。
+                              </p>
+                           </div>
+                           
+                           <ul className="space-y-5 mb-8 flex-1">
+                              <li className="flex items-start gap-3 text-sm">
+                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
+                                    <CheckCircle size={14} className="text-green-400" />
+                                 </div>
+                                 <span className="text-slate-300">Erlang-C 排班计算器 (Excel)</span>
+                              </li>
+                              <li className="flex items-start gap-3 text-sm">
+                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
+                                    <CheckCircle size={14} className="text-green-400" />
+                                 </div>
+                                 <span className="text-slate-300">COPC 标准质检评分表</span>
+                              </li>
+                              <li className="flex items-start gap-3 text-sm">
+                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
+                                     <CheckCircle size={14} className="text-green-400" />
+                                 </div>
+                                 <span className="text-slate-300">核心人才盘点 9-Box 模型</span>
+                              </li>
+                               <li className="flex items-start gap-3 text-sm">
+                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
+                                     <CheckCircle size={14} className="text-green-400" />
+                                 </div>
+                                 <span className="text-slate-300">年度运营规划 PPT 模版</span>
+                              </li>
+                           </ul>
+
                            <button 
-                             onClick={() => setPaymentAttachment(null)}
-                             className="ml-1 hover:bg-emerald-100 rounded p-0.5 transition-colors"
+                              onClick={() => navigate(AppRoute.PLANS)}
+                              className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/25"
                            >
-                             <X size={14} />
+                              <Crown size={20} className="fill-slate-900" /> 
+                              立即升级解锁
                            </button>
-                        </div>
-                     )}
-                  </div>
-
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
-                     <p className="text-sm font-bold text-slate-700 mb-3">微信扫码支付 ￥9.9</p>
-                     <div className="bg-white p-2 inline-block rounded-lg shadow-sm border border-slate-100 mb-2">
-                       <img 
-                         src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=wxp://f2f0j38492&color=000000" 
-                         alt="Payment QR Code" 
-                         className="w-32 h-32 opacity-90"
-                       />
-                     </div>
-                     <p className="text-xs text-slate-400">支付后自动解锁全站 50+ 诊断工具</p>
-                  </div>
-                  
-                  <button 
-                    onClick={() => {
-                      if(!paymentProblemInput.trim()) {
-                         alert("为了更好地为您服务，请描述您当前遇到的问题。");
-                         return;
-                      }
-                      setShowPaymentGate(false);
-                      setShowKnowledgeBase(true);
-                    }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-600/20 transition-all"
-                  >
-                    已完成支付，进入下载
-                  </button>
-               </div>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Knowledge Base Modal (Overlay) */}
-      {showKnowledgeBase && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* Header */}
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-100 p-3 rounded-xl text-blue-600">
-                  <BookOpen size={24} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">诊断资源知识库</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">Knowledge Base & Template Library</p>
-                </div>
-              </div>
-              <button onClick={() => setShowKnowledgeBase(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
-                <X size={28} />
-              </button>
-            </div>
-            
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {knowledgeCategories.map((category) => (
-                    <div key={category.id} className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-                       <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2 text-lg border-b border-slate-50 pb-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${getCategoryStyles(category.color)}`}>
-                            {category.id}
-                          </span>
-                          {category.name}
-                       </h3>
-                       <div className="space-y-3">
-                          {category.items.map((item, idx) => (
-                            <ResourceItem key={idx} title={item.title} type={item.type} size={item.size} />
-                          ))}
+                           <p className="text-center text-xs text-slate-500 mt-3">7天无理由退款保证</p>
                        </div>
                     </div>
-                  ))}
-               </div>
 
-               <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-4">
-                  <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                    <Mail size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-blue-800">找不到需要的模版？</h4>
-                    <p className="text-sm text-blue-600/80">联系专家助手，我们可以在 2 小时内为您定制。</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowContactModal(true)}
-                    className="px-4 py-2 bg-white text-blue-600 text-sm font-bold rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
-                  >
-                    联系助手
-                  </button>
-               </div>
-            </div>
-          </div>
-        </div>
-      )}
+                    {/* Right: Knowledge Base List */}
+                    <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden">
+                       <div className="p-6 border-b border-slate-200 bg-white flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-lg">VIP 资源预览</h3>
+                            <p className="text-xs text-slate-500 mt-1">以下资源仅供 VIP 会员下载</p>
+                          </div>
+                          <div className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-500 flex items-center gap-1">
+                            <Lock size={12} />
+                            共 12 个文件
+                          </div>
+                       </div>
+                       <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+                          {knowledgeCategories.filter(c => !c.isAiRepository && !c.isProjectReports).map(category => (
+                             <div key={category.id}>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className={`w-1.5 h-1.5 rounded-full bg-${category.color}-500`}></span>
+                                    {category.name}
+                                </h4>
+                                <div className="space-y-3">
+                                   {category.items.map((item, idx) => (
+                                      <ResourceItem key={idx} title={item.title} type={item.type} size={item.size} locked={true} />
+                                   ))}
+                                </div>
+                             </div>
+                          ))}
+                          
+                          {/* Bottom gradient fade */}
+                          <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"></div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        )}
 
-      {/* Contact Assistant (WeChat QR) Modal */}
-      {showContactModal && (
-        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden relative animate-in zoom-in-95 duration-200">
-             <button 
-               onClick={() => setShowContactModal(false)}
-               className="absolute top-2 right-2 p-2 bg-black/5 rounded-full text-slate-500 hover:bg-black/10 z-10 hover:text-slate-900 transition-colors"
-             >
-               <X size={20} />
-             </button>
-             
-             {/* Card Header with Visuals */}
-             <div className="p-8 pb-4 bg-gradient-to-b from-blue-50/50 to-white relative">
-                {/* Decorative Bubbles */}
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none overflow-hidden">
-                   <div className="absolute top-4 right-8 w-12 h-12 bg-blue-600 rounded-full blur-xl"></div>
-                   <div className="absolute top-12 right-2 w-16 h-16 bg-indigo-400 rounded-full blur-xl"></div>
-                </div>
-
-                <div className="relative z-10">
-                  <div className="text-xs text-slate-500 font-medium mb-3">润迅</div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-1 tracking-tight">有希望之处定有磨练</h2>
-                  <p className="text-sm text-slate-500 mt-2 font-medium">崔恒捷</p>
-                </div>
-             </div>
-
-             {/* QR Code Section */}
-             <div className="p-8 pt-2 flex flex-col items-center">
-                <div className="w-56 h-56 bg-white p-1 shadow-sm border border-slate-100 rounded-lg mb-6">
-                   <img 
-                     src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https://work.weixin.qq.com/ca/qw_contact&color=2563eb" 
-                     alt="WeChat QR Code" 
-                     className="w-full h-full object-contain"
-                   />
-                </div>
-                <p className="text-slate-400 text-sm">扫描二维码，添加我的企业微信</p>
-             </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

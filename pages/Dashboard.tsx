@@ -1,19 +1,28 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { DashboardProject } from '../types';
 import { getDashboardProjects } from '../services/dashboardService';
 import { 
-  PlusCircle, TrendingUp, TrendingDown, Users, Activity, 
-  ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile, Download
+  TrendingUp, TrendingDown, Users, Activity, 
+  ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile, Download,
+  X, CheckCircle, Loader2, File, AlertCircle, FileCheck
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [currentData, setCurrentData] = useState<DashboardProject | null>(null);
+
+  // Download Modal State
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadFile, setDownloadFile] = useState<{ name: string, label: string } | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'completed'>('idle');
+  const [progress, setProgress] = useState(0);
+  
+  const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const data = getDashboardProjects();
@@ -31,9 +40,53 @@ const Dashboard: React.FC = () => {
     }
   }, [selectedProjectId, projects]);
 
-  if (!currentData) return <div className="p-8 text-center">Loading Dashboard...</div>;
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
+    };
+  }, []);
 
-  // Helper to render icons dynamically
+  const handleDownload = (filename: string | undefined, typeLabel: string) => {
+    if (!filename) {
+      // Fallback alert if data is missing
+      alert(`当前项目暂无"${typeLabel}"可供下载或查看。`);
+      return;
+    }
+    setDownloadFile({ name: filename, label: typeLabel });
+    setDownloadStatus('idle');
+    setProgress(0);
+    setShowDownloadModal(true);
+  };
+
+  const startDownload = () => {
+    if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
+    
+    setDownloadStatus('downloading');
+    setProgress(0);
+    
+    downloadTimerRef.current = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
+          setDownloadStatus('completed');
+          return 100;
+        }
+        // Random increment between 5 and 20
+        return Math.min(prev + Math.floor(Math.random() * 15) + 5, 100); 
+      });
+    }, 200);
+  };
+
+  const closeDownloadModal = () => {
+    if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
+    setShowDownloadModal(false);
+    setDownloadStatus('idle');
+    setProgress(0);
+    setDownloadFile(null);
+  };
+
+  // Helper to render icons dynamically for risk cards
   const renderRiskIcon = (iconName: string) => {
     switch (iconName) {
       case 'Users': return <Users size={20} />;
@@ -44,6 +97,23 @@ const Dashboard: React.FC = () => {
       default: return <Activity size={20} />;
     }
   };
+
+  // Helper for file type icons in modal
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return <FileText size={40} className="text-red-500" />;
+    if (['doc', 'docx'].includes(ext || '')) return <FileText size={40} className="text-blue-500" />;
+    if (['xls', 'xlsx', 'csv'].includes(ext || '')) return <FileText size={40} className="text-green-500" />;
+    return <File size={40} className="text-slate-400" />;
+  };
+
+  if (!currentData) return (
+    <div className="flex h-full items-center justify-center">
+      <div className="flex items-center gap-2 text-slate-500">
+        <Loader2 className="animate-spin" /> 正在加载指挥中心...
+      </div>
+    </div>
+  );
 
   // Determine trend color
   // For AHT (Time), lower is usually better (negative trend is good)
@@ -58,21 +128,6 @@ const Dashboard: React.FC = () => {
   }
 
   const TrendIcon = trendVal >= 0 ? TrendingUp : TrendingDown;
-
-  const handleDownload = (filename: string | undefined, typeLabel: string) => {
-    if (!filename) {
-      alert(`当前项目暂无"${typeLabel}"可供下载或查看。`);
-      return;
-    }
-    
-    // Use setTimeout to allow UI events to flush before confirm blocks
-    setTimeout(() => {
-        const confirmed = window.confirm(`【模拟系统】\n\n检测到文件：${filename}\n\n是否确认下载/查看？`);
-        if (confirmed) {
-            alert(`成功！\n\n已为您下载文件：${filename}\n\n（这只是一个演示，实际文件中会包含具体的行动细节。）`);
-        }
-    }, 50);
-  };
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-full flex flex-col">
@@ -98,8 +153,8 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
-           <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 animate-pulse">
-             运行中
+           <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 animate-pulse flex items-center gap-1">
+             <Activity size={12} /> 运行中
            </span>
            <div className="text-sm text-slate-400">更新于：{currentData.updatedAt}</div>
         </div>
@@ -122,19 +177,20 @@ const Dashboard: React.FC = () => {
                   dangerouslySetInnerHTML={{ __html: currentData.content }}
                 />
                 
+                {/* Action Buttons */}
                 <div className="mt-8 flex flex-wrap gap-3">
                    <button 
                      onClick={() => handleDownload(currentData.actionPlanFile, '详细行动计划')}
-                     className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20"
+                     className="px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20 active:transform active:scale-95"
                    >
                       <Download size={16} />
                       下载详细行动计划 (PDF)
                    </button>
                    <button 
                      onClick={() => handleDownload(currentData.meetingRecordFile, '历史会议记录')}
-                     className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2"
+                     className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 active:transform active:scale-95"
                    >
-                      <FileText size={16} />
+                      <FileCheck size={16} />
                       查看历史会议记录
                    </button>
                 </div>
@@ -151,8 +207,8 @@ const Dashboard: React.FC = () => {
                    </h3>
                 </div>
                 {/* Placeholder for quick actions */}
-                <div className="text-xs text-slate-400">
-                   数据来源: 商业智能系统 (BI)
+                <div className="text-xs text-slate-400 font-mono">
+                   Source: Captain BI
                 </div>
              </div>
              
@@ -237,7 +293,7 @@ const Dashboard: React.FC = () => {
               <div className="text-slate-400 text-xs mt-2 leading-relaxed">
                 需重点关注的异常指标或人员名单，点击下方按钮查看详情。
               </div>
-              <button className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+              <button className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium">
                 查看详细列表
               </button>
            </div>
@@ -245,6 +301,101 @@ const Dashboard: React.FC = () => {
         </div>
 
       </div>
+
+      {/* --- DOWNLOAD MODAL --- */}
+      {showDownloadModal && downloadFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 relative">
+              <button 
+                onClick={closeDownloadModal}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="p-8 flex flex-col items-center text-center">
+                 {/* Icon Status */}
+                 <div className="mb-6 relative">
+                    {downloadStatus === 'completed' ? (
+                       <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 animate-in zoom-in duration-300 border-4 border-green-100">
+                          <CheckCircle size={40} />
+                       </div>
+                    ) : (
+                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center animate-in zoom-in duration-300 border-4 border-slate-100 relative">
+                          {downloadStatus === 'downloading' ? (
+                             <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
+                          ) : null}
+                          {getFileIcon(downloadFile.name)}
+                       </div>
+                    )}
+                 </div>
+
+                 <h3 className="text-xl font-bold text-slate-900 mb-2">{downloadFile.label}</h3>
+                 <p className="text-sm text-slate-500 mb-8 break-all font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center gap-2">
+                    <File size={12} /> {downloadFile.name}
+                 </p>
+
+                 {/* Action Area */}
+                 <div className="w-full">
+                    {downloadStatus === 'idle' && (
+                       <button 
+                         onClick={startDownload}
+                         className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2 hover:-translate-y-0.5"
+                       >
+                         <Download size={18} /> 
+                         {downloadFile.label.includes('会议') ? '获取记录' : '立即下载'}
+                       </button>
+                    )}
+
+                    {downloadStatus === 'downloading' && (
+                       <div className="w-full">
+                          <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
+                             <span>{downloadFile.label.includes('会议') ? '加载中...' : '下载中...'}</span>
+                             <span>{progress}%</span>
+                          </div>
+                          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-4">
+                             <div className="h-full bg-blue-600 transition-all duration-200 ease-out" style={{ width: `${progress}%` }}></div>
+                          </div>
+                          <button onClick={closeDownloadModal} className="text-xs text-slate-400 hover:text-slate-600 font-medium">
+                             取消操作
+                          </button>
+                       </div>
+                    )}
+
+                    {downloadStatus === 'completed' && (
+                       <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                          <div className="p-3 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-100 flex items-center justify-center gap-2">
+                             <CheckCircle size={16} /> 
+                             {downloadFile.label.includes('会议') ? '记录加载完成' : '文件下载成功'}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button 
+                                 className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm"
+                                 onClick={closeDownloadModal}
+                              >
+                                 打开文件
+                              </button>
+                              <button 
+                                 onClick={closeDownloadModal}
+                                 className="py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold transition-colors"
+                              >
+                                 关闭
+                              </button>
+                          </div>
+                       </div>
+                    )}
+                 </div>
+              </div>
+              
+              {/* Footer Info */}
+              <div className="bg-slate-50 px-6 py-3 text-center border-t border-slate-100">
+                 <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
+                    <Target size={10} /> 来源: Captain AI 指挥中心知识库
+                 </p>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

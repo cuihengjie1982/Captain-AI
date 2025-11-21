@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
@@ -75,12 +73,10 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteBlog = (id: string) => {
-    if (window.confirm('确定删除这篇文章吗？')) {
-      deleteBlogPost(id);
-      // Optimistic update for immediate UI feedback
-      setBlogs(prev => prev.filter(p => p.id !== id));
-      setTimeout(refreshData, 100);
-    }
+    deleteBlogPost(id);
+    // Optimistic update for immediate UI feedback
+    setBlogs(prev => prev.filter(p => p.id !== id));
+    setTimeout(refreshData, 100);
   };
 
   // --- Course Handlers ---
@@ -177,11 +173,9 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteLesson = (id: string) => {
-    if (window.confirm('确定删除这门课程吗？')) {
-      deleteLesson(id);
-      setLessons(prev => prev.filter(l => l.id !== id));
-      setTimeout(refreshData, 100);
-    }
+    deleteLesson(id);
+    setLessons(prev => prev.filter(l => l.id !== id));
+    setTimeout(refreshData, 100);
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,11 +285,9 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteCategory = (id: string) => {
-    if (window.confirm('确定删除此分类及其所有文件吗？')) {
-      deleteKnowledgeCategory(id);
-      setCategories(prev => prev.filter(c => c.id !== id));
-      setTimeout(refreshData, 100);
-    }
+    deleteKnowledgeCategory(id);
+    setCategories(prev => prev.filter(c => c.id !== id));
+    setTimeout(refreshData, 100);
   };
 
   // --- Dashboard Project Handlers ---
@@ -385,19 +377,15 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteProject = (id: string) => {
-    if (window.confirm('确定删除此项目吗？')) {
-      deleteDashboardProject(id);
-      setProjects(prev => prev.filter(p => p.id !== id));
-      setTimeout(refreshData, 100);
-    }
+    deleteDashboardProject(id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+    setTimeout(refreshData, 100);
   };
 
   // --- User Data Handlers ---
   const handleDeleteUserUpload = (id: string) => {
-    if (window.confirm('确定删除此用户文件吗？')) {
-      deleteUserUpload(id);
-      setUserUploads(prev => prev.filter(u => u.id !== id));
-    }
+    deleteUserUpload(id);
+    setUserUploads(prev => prev.filter(u => u.id !== id));
   };
 
   const handleStatusChange = (id: string, newStatus: UserUpload['status']) => {
@@ -406,10 +394,8 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteNote = (id: string) => {
-    if (window.confirm('确定删除此条笔记吗？')) {
-      deleteAdminNote(id);
-      setAdminNotes(prev => prev.filter(n => n.id !== id));
-    }
+    deleteAdminNote(id);
+    setAdminNotes(prev => prev.filter(n => n.id !== id));
   };
 
   // Filter Categories
@@ -1097,6 +1083,83 @@ const Admin: React.FC = () => {
                        <div>
                           <label className="block text-xs text-slate-400 mb-1">风险项数值</label>
                           <input className="w-full border p-2 rounded text-sm" value={editingProject.kpi?.riskValue} onChange={e => setEditingProject({...editingProject, kpi: {...editingProject.kpi!, riskValue: e.target.value}})} />
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* NEW SECTION: Project Files */}
+                 <div className="col-span-2 border-t border-slate-100 pt-4 mt-2">
+                    <h4 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2"><FileText size={16} /> 项目文档配置</h4>
+                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+                       <div>
+                          <label className="block text-xs text-slate-400 mb-1">详细行动计划 (PDF)</label>
+                          <div className="flex gap-2">
+                             <div className="relative flex-1">
+                                <input 
+                                   className="w-full border p-2 pl-8 rounded text-sm bg-white text-slate-600" 
+                                   value={editingProject.actionPlanFile || ''} 
+                                   readOnly
+                                   placeholder="暂未上传文件"
+                                />
+                                <FileText size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                             </div>
+                             <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 rounded text-sm flex items-center justify-center transition-colors" title="上传文件">
+                                <Upload size={16} />
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept=".pdf"
+                                  onChange={(e) => {
+                                     const file = e.target.files?.[0];
+                                     if(file) setEditingProject({...editingProject, actionPlanFile: file.name});
+                                  }}
+                                />
+                             </label>
+                             {editingProject.actionPlanFile && (
+                                <button 
+                                  onClick={() => setEditingProject({...editingProject, actionPlanFile: undefined})}
+                                  className="text-red-400 hover:text-red-600 hover:bg-red-50 px-2 rounded transition-colors"
+                                  title="清除"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                             )}
+                          </div>
+                       </div>
+                       <div>
+                          <label className="block text-xs text-slate-400 mb-1">历史会议记录 (DOC/PDF)</label>
+                           <div className="flex gap-2">
+                             <div className="relative flex-1">
+                                <input 
+                                   className="w-full border p-2 pl-8 rounded text-sm bg-white text-slate-600" 
+                                   value={editingProject.meetingRecordFile || ''} 
+                                   readOnly
+                                   placeholder="暂未上传文件"
+                                />
+                                <FileText size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                             </div>
+                             <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 rounded text-sm flex items-center justify-center transition-colors" title="上传文件">
+                                <Upload size={16} />
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept=".doc,.docx,.pdf"
+                                  onChange={(e) => {
+                                     const file = e.target.files?.[0];
+                                     if(file) setEditingProject({...editingProject, meetingRecordFile: file.name});
+                                  }}
+                                />
+                             </label>
+                             {editingProject.meetingRecordFile && (
+                                <button 
+                                  onClick={() => setEditingProject({...editingProject, meetingRecordFile: undefined})}
+                                  className="text-red-400 hover:text-red-600 hover:bg-red-50 px-2 rounded transition-colors"
+                                  title="清除"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                             )}
+                          </div>
                        </div>
                     </div>
                  </div>
