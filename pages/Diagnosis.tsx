@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AppRoute, KnowledgeCategory } from '../types';
+import { AppRoute, KnowledgeCategory, UserUpload } from '../types';
 import { 
-  ArrowRight, Send, Loader2, RotateCcw, 
+  ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
-  X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check
+  X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock
 } from 'lucide-react';
 import { getKnowledgeCategories } from '../services/resourceService';
+import { saveUserUpload } from '../services/userDataService';
+import { createChatSession, sendMessageToAI } from '../services/geminiService';
 
 interface Message {
   id: string;
@@ -89,6 +91,11 @@ const Diagnosis: React.FC = () => {
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false); // Controls the Knowledge Base Modal
   const [showContactModal, setShowContactModal] = useState(false); // Controls the WeChat QR Modal
+
+  // Payment Gate State
+  const [showPaymentGate, setShowPaymentGate] = useState(false);
+  const [paymentProblemInput, setPaymentProblemInput] = useState('');
+  const [paymentAttachment, setPaymentAttachment] = useState<string | null>(null);
 
   // Knowledge Base
   const [knowledgeCategories, setKnowledgeCategories] = useState<KnowledgeCategory[]>([]);
@@ -201,6 +208,43 @@ const Diagnosis: React.FC = () => {
     }, 1500);
   };
 
+  const handleSummarize = async () => {
+    if (messages.length === 0 || isTyping) return;
+    
+    setIsTyping(true);
+    
+    try {
+        const chat = createChatSession();
+        let summary = "";
+        
+        if (chat) {
+            const conversationHistory = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
+            const prompt = `请为以下对话生成一个简短的摘要（100字以内），总结用户的主要问题和当前的诊断进展：\n\n${conversationHistory}`;
+            summary = await sendMessageToAI(chat, prompt);
+        } else {
+            // Fallback if API key missing
+            summary = "基于当前对话，我们已探讨了您的核心运营挑战。建议继续明确关键痛点，以便匹配最佳解决方案。";
+        }
+        
+        setMessages(prev => [...prev, { 
+            id: Date.now().toString(), 
+            sender: 'ai', 
+            text: `📝 **对话摘要**：\n${summary}` 
+        }]);
+    } catch (e) {
+        console.error(e);
+         setMessages(prev => [...prev, { 
+            id: Date.now().toString(), 
+            sender: 'ai', 
+            text: "抱歉，生成摘要时出现错误，请稍后再试。" 
+        }]);
+    } finally {
+        setIsTyping(false);
+        // Scroll to bottom
+        setTimeout(scrollToBottom, 100);
+    }
+  };
+
   const restartDiagnosis = () => {
     setMessages([{
         id: 'restart',
@@ -215,9 +259,27 @@ const Diagnosis: React.FC = () => {
     if (file) {
       setUploadedFileName(file.name);
       setUploadStatus('uploading');
+      
+      // Get user info
+      const currentUser = JSON.parse(localStorage.getItem('captainUser') || '{}');
+
       // Simulate upload delay
       setTimeout(() => {
         setUploadStatus('success');
+        
+        // Save to admin service
+        const newUpload: UserUpload = {
+          id: Date.now().toString(),
+          fileName: file.name,
+          fileType: file.name.split('.').pop() || 'unknown',
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          uploadDate: new Date().toLocaleString('zh-CN'),
+          status: 'pending',
+          userName: currentUser.name || 'Guest User',
+          userEmail: currentUser.email
+        };
+        saveUserUpload(newUpload);
+
       }, 2000);
     }
   };
@@ -305,7 +367,7 @@ const Diagnosis: React.FC = () => {
                             ? 'bg-blue-600 text-white rounded-tr-none' 
                             : 'bg-white text-slate-800 rounded-tl-none border border-slate-100 relative group pr-10'
                         }`}>
-                          {msg.text}
+                          <div className="whitespace-pre-wrap">{msg.text}</div>
                           {msg.sender === 'ai' && <CopyButton text={msg.text} />}
                         </div>
                       </div>
@@ -319,7 +381,7 @@ const Diagnosis: React.FC = () => {
                         </div>
                         <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm flex items-center gap-2">
                           <Loader2 size={16} className="animate-spin text-blue-600" />
-                          <span className="text-xs text-slate-400">大副正在分析...</span>
+                          <span className="text-xs text-slate-400">大副正在思考...</span>
                         </div>
                       </div>
                     </div>
@@ -334,6 +396,11 @@ const Diagnosis: React.FC = () => {
                   {step > 0 && step < 100 && (
                     <button onClick={restartDiagnosis} title="重新开始" className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
                       <RotateCcw size={20} />
+                    </button>
+                  )}
+                  {messages.length > 1 && step < 100 && (
+                    <button onClick={handleSummarize} disabled={isTyping} title="生成摘要" className="p-3 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-50">
+                      <Sparkles size={20} />
                     </button>
                   )}
                   <div className="relative flex-1">
@@ -369,7 +436,7 @@ const Diagnosis: React.FC = () => {
                 <p className="text-slate-500 mt-2">当 AI 无法解决复杂问题时，我们的行业专家可以为您提供深度分析。</p>
               </div>
 
-              {/* Step 1: Download (Updated to Open Knowledge Base) */}
+              {/* Step 1: Download (Updated to Open Payment Gate) */}
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6">
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
                   <BookOpen size={28} />
@@ -379,10 +446,10 @@ const Diagnosis: React.FC = () => {
                    <p className="text-slate-500 text-sm mt-1">进入知识库下载各类诊断工具，包括 Excel 模型、PPT 汇报模版及调查问卷。</p>
                 </div>
                 <button 
-                  onClick={() => setShowKnowledgeBase(true)}
+                  onClick={() => setShowPaymentGate(true)}
                   className="px-5 py-2.5 bg-slate-800 text-white rounded-lg font-medium hover:bg-slate-900 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
                 >
-                  <Download size={18} /> 浏览模版库
+                  <Download size={18} /> 下载诊断工具模版库
                 </button>
               </div>
 
@@ -459,6 +526,104 @@ const Diagnosis: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Payment Gate Modal */}
+      {showPaymentGate && (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 relative">
+             <button 
+               onClick={() => setShowPaymentGate(false)}
+               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10"
+             >
+               <X size={24} />
+             </button>
+             
+             <div className="p-6 pt-8">
+               <div className="text-center mb-6">
+                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Lock size={24} />
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900">解锁专家级诊断模版库</h2>
+                  <p className="text-sm text-slate-500 mt-1">请完善信息并扫码支付以获取下载权限</p>
+               </div>
+
+               <div className="space-y-5">
+                  <div>
+                     <label className="block text-sm font-bold text-slate-700 mb-2">
+                       当前具体要解决的问题 <span className="text-red-500">*</span>
+                     </label>
+                     <div className="relative">
+                        <textarea 
+                            value={paymentProblemInput}
+                            onChange={(e) => setPaymentProblemInput(e.target.value)}
+                            placeholder="请详细描述您遇到的运营难题，以便我们为您推荐最合适的工具..."
+                            className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm min-h-[120px] resize-none bg-slate-50 pb-12"
+                        />
+                        <div className="absolute bottom-3 right-3">
+                           <input 
+                             type="file" 
+                             id="payment-attachment-upload"
+                             className="hidden"
+                             accept=".xlsx,.xls,.doc,.docx,.pdf"
+                             onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setPaymentAttachment(file.name);
+                             }}
+                           />
+                           <label 
+                             htmlFor="payment-attachment-upload"
+                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-medium text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer transition-all"
+                           >
+                             <Upload size={14} />
+                             上传数据/文档
+                           </label>
+                        </div>
+                     </div>
+                     
+                     {paymentAttachment && (
+                        <div className="mt-2 flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg border border-emerald-100 w-fit animate-in fade-in slide-in-from-top-1">
+                           <FileText size={14} />
+                           <span className="font-medium max-w-[200px] truncate">已添加: {paymentAttachment}</span>
+                           <button 
+                             onClick={() => setPaymentAttachment(null)}
+                             className="ml-1 hover:bg-emerald-100 rounded p-0.5 transition-colors"
+                           >
+                             <X size={14} />
+                           </button>
+                        </div>
+                     )}
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                     <p className="text-sm font-bold text-slate-700 mb-3">微信扫码支付 ￥9.9</p>
+                     <div className="bg-white p-2 inline-block rounded-lg shadow-sm border border-slate-100 mb-2">
+                       <img 
+                         src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=wxp://f2f0j38492&color=000000" 
+                         alt="Payment QR Code" 
+                         className="w-32 h-32 opacity-90"
+                       />
+                     </div>
+                     <p className="text-xs text-slate-400">支付后自动解锁全站 50+ 诊断工具</p>
+                  </div>
+                  
+                  <button 
+                    onClick={() => {
+                      if(!paymentProblemInput.trim()) {
+                         alert("为了更好地为您服务，请描述您当前遇到的问题。");
+                         return;
+                      }
+                      setShowPaymentGate(false);
+                      setShowKnowledgeBase(true);
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-600/20 transition-all"
+                  >
+                    已完成支付，进入下载
+                  </button>
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* Knowledge Base Modal (Overlay) */}
       {showKnowledgeBase && (

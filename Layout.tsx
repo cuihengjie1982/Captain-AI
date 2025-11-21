@@ -41,10 +41,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: AppRoute.DIAGNOSIS, label: '诊断罗盘', icon: Compass },
     { path: AppRoute.SOLUTION, label: '解决方案库', icon: Anchor },
     { path: AppRoute.DASHBOARD, label: '指挥中心', icon: LayoutDashboard },
+    // New User Center Menu
     { path: AppRoute.MY_VIDEOS, label: '个人中心', icon: UserCircle },
   ];
 
-  // Admin menu item is pushed last, ensuring it appears below Dashboard
+  // Admin menu item is pushed last
   if (user?.role === 'admin') {
     navItems.push({ path: AppRoute.ADMIN, label: '后台管理', icon: Settings });
   }
@@ -65,11 +66,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <nav className="flex-1 py-6 px-3 space-y-1">
           {navItems.map((item) => {
+            // Active state logic: Check if path matches or if it's part of the User Center group
             const isUserCenter = item.path === AppRoute.MY_VIDEOS && [
                AppRoute.MY_VIDEOS, AppRoute.MY_NOTES, AppRoute.SETTINGS, AppRoute.PLANS
             ].includes(location.pathname as AppRoute);
-            const isActive = location.pathname === item.path || isUserCenter;
             
+            const isActive = location.pathname === item.path || isUserCenter;
+
             return (
               <Link
                 key={item.path}

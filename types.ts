@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   name: string;
@@ -56,6 +57,7 @@ export interface Lesson {
   thumbnail: string;
   highlights: Highlight[];
   transcript: TranscriptLine[];
+  category?: string; // Added category for filtering
 }
 
 // Moved from Diagnosis.tsx
@@ -71,6 +73,7 @@ export interface KnowledgeCategory {
   color: string;
   items: KnowledgeItem[];
   isAiRepository?: boolean; // Added to distinguish AI Reply Library
+  isProjectReports?: boolean; // Added for Dashboard Project Reports
 }
 
 export interface DashboardProject {
@@ -90,6 +93,37 @@ export interface DashboardProject {
     riskColor: string;
   };
   chartData: KPIRecord[];
+  // Added for Project Improvement Reports
+  actionPlanFile?: string; 
+  meetingRecordFile?: string;
+}
+
+// New Interfaces for User Data Management
+export interface UserUpload {
+  id: string;
+  fileName: string;
+  fileType: string;
+  size: string;
+  uploadDate: string;
+  status: 'pending' | 'analyzing' | 'completed';
+  userName: string;
+  userEmail?: string;
+}
+
+export interface AdminNote {
+  id: string;
+  content: string;
+  lessonTitle: string;
+  timestampDisplay: string;
+  createdAt: string;
+  userName: string;
+}
+
+// User History Interface
+export interface WatchedLesson {
+  lessonId: string;
+  watchedAt: string;
+  progress: number; // 0-100
 }
 
 export enum AppRoute {
@@ -98,6 +132,12 @@ export enum AppRoute {
   BLOG_DETAIL = '/blog/:id',
   DIAGNOSIS = '/diagnosis',
   SOLUTION = '/solution',
+  SOLUTION_DETAIL = '/solution/:id',
   DASHBOARD = '/dashboard',
-  ADMIN = '/admin' // Added Admin Route
+  ADMIN = '/admin',
+  // New User Center Routes
+  MY_VIDEOS = '/my-videos',
+  MY_NOTES = '/my-notes',
+  SETTINGS = '/settings',
+  PLANS = '/plans'
 }

@@ -1,3 +1,4 @@
+
 import { Lesson } from '../types';
 
 const STORAGE_KEY = 'captain_lessons';
@@ -9,6 +10,7 @@ const MOCK_LESSONS: Lesson[] = [
     duration: '08:45',
     durationSec: 525,
     thumbnail: 'https://picsum.photos/id/1/800/450',
+    category: '人员管理',
     highlights: [
       { label: '离职动因模型', time: 15, color: 'bg-blue-100 text-blue-700' },
       { label: '薪资误区', time: 145, color: 'bg-orange-100 text-orange-700' },
@@ -36,6 +38,7 @@ const MOCK_LESSONS: Lesson[] = [
     duration: '12:30',
     durationSec: 750,
     thumbnail: 'https://picsum.photos/id/2/800/450',
+    category: '人员管理',
     highlights: [
       { label: '奖金结构', time: 30, color: 'bg-green-100 text-green-700' },
       { label: '及时激励', time: 200, color: 'bg-blue-100 text-blue-700' },
@@ -55,6 +58,7 @@ const MOCK_LESSONS: Lesson[] = [
     duration: '15:10',
     durationSec: 910,
     thumbnail: 'https://picsum.photos/id/3/800/450',
+    category: '人员管理',
     highlights: [
       { label: 'GROW模型', time: 60, color: 'bg-indigo-100 text-indigo-700' },
       { label: '信任建立', time: 320, color: 'bg-yellow-100 text-yellow-700' }
@@ -69,13 +73,28 @@ const MOCK_LESSONS: Lesson[] = [
 ];
 
 // Mock generating more lessons
+const CATEGORIES = ['人员管理', 'WFM管理', '质量与体验', '运营效率', '客户满意度'];
+
 for (let i = 4; i <= 20; i++) {
+  const randomCategory = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+  const titles: Record<string, string[]> = {
+    'WFM管理': ['排班预测进阶', '实时监控技巧', 'Erlang-C模型详解', 'Shrinkage管理实战'],
+    '质量与体验': ['质检校准工作坊', 'NPS提升策略', '客户旅程地图绘制', '投诉处理艺术'],
+    '运营效率': ['AHT缩减指南', 'FCR首问解决率', '流程自动化案例', '多技能路由策略'],
+    '客户满意度': ['同理心沟通', '化解愤怒客户', '服务意识培养', 'VOC声音分析'],
+    '人员管理': ['高绩效团队建设', '新生代员工管理', '压力与情绪管理', '招聘面试技巧']
+  };
+  
+  const catTitles = titles[randomCategory] || ['通用管理课程'];
+  const randomTitle = catTitles[Math.floor(Math.random() * catTitles.length)];
+
   MOCK_LESSONS.push({
     id: i.toString(),
-    title: `${i < 10 ? '0' + i : i}. 进阶课程：呼叫中心运营实战案例 ${i}`,
+    title: `${i < 10 ? '0' + i : i}. ${randomTitle} ${i}`,
     duration: '10:00',
     durationSec: 600,
-    thumbnail: `https://picsum.photos/id/${i + 10}/800/450`,
+    thumbnail: `https://picsum.photos/id/${i + 15}/800/450`,
+    category: randomCategory,
     highlights: [],
     transcript: [{ time: 0, text: "本课程内容即将上线，敬请期待。" }]
   });

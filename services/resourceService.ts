@@ -1,7 +1,9 @@
 
+
+
 import { KnowledgeCategory } from '../types';
 
-const STORAGE_KEY = 'captain_resources';
+const STORAGE_KEY = 'captain_resources_v2';
 
 const DEFAULT_RESOURCES: KnowledgeCategory[] = [
   // AI Repository Item
@@ -14,6 +16,21 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
        { title: "标准诊断报告模版.docx", type: "doc", size: "1.2 MB" },
        { title: "AI 建议实施路径图.pdf", type: "pdf", size: "0.8 MB" },
        { title: "自动化数据采集脚本.xlsx", type: "xlsx", size: "45 KB" }
+    ]
+  },
+  // Project Improvement Reports (New Category)
+  {
+    id: 'project-reports', 
+    name: '项目改善报告库', 
+    color: 'rose',
+    isProjectReports: true,
+    items: [
+       { title: "Q3_核心骨干留存_行动计划_v2.pdf", type: "pdf", size: "2.4 MB" },
+       { title: "Q3_核心骨干留存_会议纪要.doc", type: "doc", size: "1.1 MB" },
+       { title: "NPS提升_全渠道体验_实施方案.pdf", type: "pdf", size: "3.5 MB" },
+       { title: "NPS项目_周会记录_0520.doc", type: "doc", size: "0.5 MB" },
+       { title: "AHT缩减_流程优化指南.pdf", type: "pdf", size: "1.8 MB" },
+       { title: "AHT项目_复盘会议记录.doc", type: "doc", size: "0.9 MB" }
     ]
   },
   // General Resources

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
@@ -6,7 +7,7 @@ import { DashboardProject } from '../types';
 import { getDashboardProjects } from '../services/dashboardService';
 import { 
   PlusCircle, TrendingUp, TrendingDown, Users, Activity, 
-  ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile
+  ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile, Download
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -58,6 +59,21 @@ const Dashboard: React.FC = () => {
 
   const TrendIcon = trendVal >= 0 ? TrendingUp : TrendingDown;
 
+  const handleDownload = (filename: string | undefined, typeLabel: string) => {
+    if (!filename) {
+      alert(`当前项目暂无"${typeLabel}"可供下载或查看。`);
+      return;
+    }
+    
+    // Use setTimeout to allow UI events to flush before confirm blocks
+    setTimeout(() => {
+        const confirmed = window.confirm(`【模拟系统】\n\n检测到文件：${filename}\n\n是否确认下载/查看？`);
+        if (confirmed) {
+            alert(`成功！\n\n已为您下载文件：${filename}\n\n（这只是一个演示，实际文件中会包含具体的行动细节。）`);
+        }
+    }, 50);
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-full flex flex-col">
       
@@ -97,7 +113,7 @@ const Dashboard: React.FC = () => {
            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2">
                  <FileText size={18} className="text-blue-600" />
-                 <h2 className="font-bold text-slate-800">项目简报与策略</h2>
+                 <h2 className="font-bold text-slate-800">项目改善报告</h2>
               </div>
               <div className="p-6 md:p-8">
                 {/* Dynamic HTML Content */}
@@ -106,11 +122,19 @@ const Dashboard: React.FC = () => {
                   dangerouslySetInnerHTML={{ __html: currentData.content }}
                 />
                 
-                <div className="mt-8 flex gap-3">
-                   <button className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors">
+                <div className="mt-8 flex flex-wrap gap-3">
+                   <button 
+                     onClick={() => handleDownload(currentData.actionPlanFile, '详细行动计划')}
+                     className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20"
+                   >
+                      <Download size={16} />
                       下载详细行动计划 (PDF)
                    </button>
-                   <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                   <button 
+                     onClick={() => handleDownload(currentData.meetingRecordFile, '历史会议记录')}
+                     className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2"
+                   >
+                      <FileText size={16} />
                       查看历史会议记录
                    </button>
                 </div>
@@ -215,20 +239,6 @@ const Dashboard: React.FC = () => {
               </div>
               <button className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                 查看详细列表
-              </button>
-           </div>
-
-           {/* Quick Actions */}
-           <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg text-white">
-              <div className="flex items-center gap-3 mb-4">
-                 <Zap size={20} className="text-yellow-400" />
-                 <h3 className="font-bold">智能诊断</h3>
-              </div>
-              <p className="text-slate-300 text-sm mb-6">
-                觉得数据不达预期？让 AI 助手分析当前指标并生成改进建议。
-              </p>
-              <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-900/50 flex items-center justify-center gap-2">
-                 启动 AI 诊断 <Target size={16} />
               </button>
            </div>
 

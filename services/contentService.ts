@@ -1,3 +1,4 @@
+
 import { BlogPost } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
@@ -78,8 +79,10 @@ const loadPosts = (): BlogPost[] => {
     console.error("Failed to load blog posts", e);
   }
   // Initialize storage with defaults if empty
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_POSTS));
-  return DEFAULT_POSTS;
+  // Create a deep copy to avoid reference mutation issues of DEFAULT_POSTS constant
+  const defaults = JSON.parse(JSON.stringify(DEFAULT_POSTS));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+  return defaults;
 };
 
 export const getBlogPosts = (): BlogPost[] => {

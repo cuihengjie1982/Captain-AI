@@ -1,6 +1,7 @@
+
 import { DashboardProject } from '../types';
 
-const STORAGE_KEY = 'captain_dashboard_projects';
+const STORAGE_KEY = 'captain_dashboard_projects_v2';
 
 const DEFAULT_PROJECTS: DashboardProject[] = [
   {
@@ -37,7 +38,9 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '4月', value: 80 },
       { month: '5月', value: 83 },
       { month: '6月', value: 85 },
-    ]
+    ],
+    actionPlanFile: "Q3_核心骨干留存_行动计划_v2.pdf",
+    meetingRecordFile: "Q3_核心骨干留存_会议纪要.doc"
   },
   {
     id: 'p2',
@@ -74,7 +77,9 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '4月', value: 4.4 },
       { month: '5月', value: 4.5 },
       { month: '6月', value: 4.6 },
-    ]
+    ],
+    actionPlanFile: "NPS提升_全渠道体验_实施方案.pdf",
+    meetingRecordFile: "NPS项目_周会记录_0520.doc"
   },
   {
     id: 'p3',
@@ -110,7 +115,9 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '4月', value: 460 },
       { month: '5月', value: 440 },
       { month: '6月', value: 425 },
-    ]
+    ],
+    actionPlanFile: "AHT缩减_流程优化指南.pdf",
+    meetingRecordFile: "AHT项目_复盘会议记录.doc"
   }
 ];
 

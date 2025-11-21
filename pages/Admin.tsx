@@ -1,22 +1,30 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
   Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
-  LayoutDashboard, Target, PieChart, BarChart3
+  LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File, Download
 } from 'lucide-react';
-import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject } from '../types';
+import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote } from '../types';
 import { getBlogPosts, saveBlogPost, deleteBlogPost } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
+import { getUserUploads, deleteUserUpload, getAdminNotes, deleteAdminNote, updateUserUploadStatus } from '../services/userDataService';
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'blog' | 'course' | 'knowledge' | 'dashboard'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'course' | 'knowledge' | 'dashboard' | 'userdata'>('blog');
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
+  
+  // User Data State
+  const [userUploads, setUserUploads] = useState<UserUpload[]>([]);
+  const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]);
+  const [userDataTab, setUserDataTab] = useState<'uploads' | 'notes'>('uploads');
   
   const [editingBlog, setEditingBlog] = useState<Partial<BlogPost> | null>(null);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson> | null>(null);
@@ -32,6 +40,8 @@ const Admin: React.FC = () => {
     setLessons(getLessons());
     setCategories(getKnowledgeCategories());
     setProjects(getDashboardProjects());
+    setUserUploads(getUserUploads());
+    setAdminNotes(getAdminNotes());
   };
 
   useEffect(() => {
@@ -67,7 +77,9 @@ const Admin: React.FC = () => {
   const handleDeleteBlog = (id: string) => {
     if (window.confirm('确定删除这篇文章吗？')) {
       deleteBlogPost(id);
-      refreshData();
+      // Optimistic update for immediate UI feedback
+      setBlogs(prev => prev.filter(p => p.id !== id));
+      setTimeout(refreshData, 100);
     }
   };
 
@@ -167,7 +179,8 @@ const Admin: React.FC = () => {
   const handleDeleteLesson = (id: string) => {
     if (window.confirm('确定删除这门课程吗？')) {
       deleteLesson(id);
-      refreshData();
+      setLessons(prev => prev.filter(l => l.id !== id));
+      setTimeout(refreshData, 100);
     }
   };
 
@@ -228,16 +241,17 @@ const Admin: React.FC = () => {
   };
 
   // --- Knowledge Base Handlers ---
-  const handleEditCategory = (cat: KnowledgeCategory | null, isAi: boolean = false) => {
+  const handleEditCategory = (cat: KnowledgeCategory | null, isAi: boolean = false, isProjectReports: boolean = false) => {
     if (cat) {
       setEditingCategory({ ...cat });
     } else {
       setEditingCategory({
         id: Date.now().toString(),
         name: '',
-        color: isAi ? 'violet' : 'blue',
+        color: isAi ? 'violet' : (isProjectReports ? 'rose' : 'blue'),
         items: [],
-        isAiRepository: isAi // Set flag for new items
+        isAiRepository: isAi, // Set flag for new items
+        isProjectReports: isProjectReports
       });
     }
   };
@@ -279,7 +293,8 @@ const Admin: React.FC = () => {
   const handleDeleteCategory = (id: string) => {
     if (window.confirm('确定删除此分类及其所有文件吗？')) {
       deleteKnowledgeCategory(id);
-      refreshData();
+      setCategories(prev => prev.filter(c => c.id !== id));
+      setTimeout(refreshData, 100);
     }
   };
 
@@ -372,13 +387,35 @@ const Admin: React.FC = () => {
   const handleDeleteProject = (id: string) => {
     if (window.confirm('确定删除此项目吗？')) {
       deleteDashboardProject(id);
-      refreshData();
+      setProjects(prev => prev.filter(p => p.id !== id));
+      setTimeout(refreshData, 100);
+    }
+  };
+
+  // --- User Data Handlers ---
+  const handleDeleteUserUpload = (id: string) => {
+    if (window.confirm('确定删除此用户文件吗？')) {
+      deleteUserUpload(id);
+      setUserUploads(prev => prev.filter(u => u.id !== id));
+    }
+  };
+
+  const handleStatusChange = (id: string, newStatus: UserUpload['status']) => {
+    updateUserUploadStatus(id, newStatus);
+    setUserUploads(prev => prev.map(u => u.id === id ? {...u, status: newStatus} : u));
+  };
+
+  const handleDeleteNote = (id: string) => {
+    if (window.confirm('确定删除此条笔记吗？')) {
+      deleteAdminNote(id);
+      setAdminNotes(prev => prev.filter(n => n.id !== id));
     }
   };
 
   // Filter Categories
   const aiCategories = categories.filter(c => c.isAiRepository);
-  const generalCategories = categories.filter(c => !c.isAiRepository);
+  const projectReportCategories = categories.filter(c => c.isProjectReports);
+  const generalCategories = categories.filter(c => !c.isAiRepository && !c.isProjectReports);
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -398,6 +435,7 @@ const Admin: React.FC = () => {
           { id: 'course', label: '视频课程管理', icon: Video },
           { id: 'knowledge', label: '知识库管理', icon: Database },
           { id: 'dashboard', label: '指挥中心管理', icon: LayoutDashboard },
+          { id: 'userdata', label: '用户数据管理', icon: Users },
         ].map(tab => (
           <button
             key={tab.id}
@@ -413,6 +451,133 @@ const Admin: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* --- USER DATA MANAGEMENT --- */}
+      {activeTab === 'userdata' && (
+        <div className="space-y-6">
+           <div className="flex gap-4 mb-6">
+             <button 
+                onClick={() => setUserDataTab('uploads')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  userDataTab === 'uploads' 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+             >
+                <FileText size={16} /> 诊断材料上传 ({userUploads.length})
+             </button>
+             <button 
+                onClick={() => setUserDataTab('notes')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  userDataTab === 'notes' 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+             >
+                <ClipboardList size={16} /> 用户学习笔记 ({adminNotes.length})
+             </button>
+           </div>
+
+           {userDataTab === 'uploads' && (
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+               <table className="w-full text-left text-sm">
+                 <thead className="bg-slate-50 border-b border-slate-200">
+                   <tr>
+                     <th className="p-4 font-medium text-slate-600">文件名</th>
+                     <th className="p-4 font-medium text-slate-600">上传用户</th>
+                     <th className="p-4 font-medium text-slate-600">上传时间</th>
+                     <th className="p-4 font-medium text-slate-600">大小</th>
+                     <th className="p-4 font-medium text-slate-600">状态</th>
+                     <th className="p-4 font-medium text-slate-600 text-right">操作</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100">
+                   {userUploads.length === 0 ? (
+                     <tr>
+                       <td colSpan={6} className="p-8 text-center text-slate-400 italic">暂无用户上传文件</td>
+                     </tr>
+                   ) : (
+                     userUploads.map(upload => (
+                       <tr key={upload.id} className="hover:bg-slate-50">
+                         <td className="p-4">
+                           <div className="flex items-center gap-2 font-medium text-slate-800">
+                             <File size={16} className="text-blue-500" />
+                             {upload.fileName}
+                           </div>
+                         </td>
+                         <td className="p-4 text-slate-600">
+                            <div>{upload.userName}</div>
+                            <div className="text-xs text-slate-400">{upload.userEmail}</div>
+                         </td>
+                         <td className="p-4 text-slate-500">{upload.uploadDate}</td>
+                         <td className="p-4 text-slate-500 font-mono text-xs">{upload.size}</td>
+                         <td className="p-4">
+                           <select 
+                              value={upload.status}
+                              onChange={(e) => handleStatusChange(upload.id, e.target.value as any)}
+                              className={`text-xs font-bold px-2 py-1 rounded border-0 cursor-pointer outline-none ${
+                                upload.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                upload.status === 'analyzing' ? 'bg-blue-100 text-blue-700' : 
+                                'bg-orange-100 text-orange-700'
+                              }`}
+                           >
+                             <option value="pending">待处理</option>
+                             <option value="analyzing">分析中</option>
+                             <option value="completed">已完成</option>
+                           </select>
+                         </td>
+                         <td className="p-4 flex justify-end gap-2">
+                           <button className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="下载查看 (模拟)"><Download size={16} /></button>
+                           <button onClick={() => handleDeleteUserUpload(upload.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                         </td>
+                       </tr>
+                     ))
+                   )}
+                 </tbody>
+               </table>
+             </div>
+           )}
+
+           {userDataTab === 'notes' && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {adminNotes.length === 0 ? (
+                  <div className="col-span-2 p-12 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+                    暂无用户笔记
+                  </div>
+               ) : (
+                 adminNotes.map(note => (
+                   <div key={note.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all relative group">
+                      <button 
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <div className="flex items-center gap-2 mb-3">
+                         <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                            {note.userName.charAt(0)}
+                         </div>
+                         <div>
+                            <div className="text-sm font-bold text-slate-800">{note.userName}</div>
+                            <div className="text-xs text-slate-400">{note.createdAt}</div>
+                         </div>
+                      </div>
+                      <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-700 mb-3 leading-relaxed border border-slate-100">
+                         "{note.content}"
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-100 w-fit px-2 py-1 rounded">
+                         <Video size={12} />
+                         <span className="font-medium truncate max-w-[200px]">{note.lessonTitle}</span>
+                         <span className="text-slate-300">|</span>
+                         <span className="font-mono">{note.timestampDisplay}</span>
+                      </div>
+                   </div>
+                 ))
+               )}
+             </div>
+           )}
+        </div>
+      )}
 
       {/* --- BLOG MANAGEMENT --- */}
       {activeTab === 'blog' && (
@@ -649,7 +814,8 @@ const Admin: React.FC = () => {
                <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-lg flex items-center gap-2">
                     {editingCategory.isAiRepository && <Bot size={20} className="text-violet-600" />}
-                    {editingCategory.id ? '编辑知识分类' : (editingCategory.isAiRepository ? '新增 AI 智能回复库' : '新增常规资源库')}
+                    {editingCategory.isProjectReports && <LayoutDashboard size={20} className="text-rose-600" />}
+                    {editingCategory.id ? '编辑知识分类' : (editingCategory.isAiRepository ? '新增 AI 智能回复库' : (editingCategory.isProjectReports ? '新增项目改善报告库' : '新增常规资源库'))}
                   </h3>
                </div>
                
@@ -719,7 +885,7 @@ const Admin: React.FC = () => {
                     AI 智能回复库
                     <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">AI 调用资源</span>
                   </h3>
-                  <button onClick={() => handleEditCategory(null, true)} className="text-sm bg-violet-50 text-violet-700 hover:bg-violet-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-violet-200">
+                  <button onClick={() => handleEditCategory(null, true, false)} className="text-sm bg-violet-50 text-violet-700 hover:bg-violet-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-violet-200">
                     <Plus size={16} /> 新增 AI 库
                   </button>
                 </div>
@@ -735,7 +901,52 @@ const Admin: React.FC = () => {
                               {cat.name}
                             </h3>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => handleEditCategory(cat, true)} className="p-1 text-violet-600 hover:bg-violet-50 rounded"><Edit size={14} /></button>
+                              <button onClick={() => handleEditCategory(cat, true, false)} className="p-1 text-violet-600 hover:bg-violet-50 rounded"><Edit size={14} /></button>
+                              <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                          {cat.items.map((item, i) => (
+                            <div key={i} className="text-xs text-slate-500 flex items-center gap-2">
+                              <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                              {item.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-slate-200"></div>
+
+              {/* Project Reports Section */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                    <LayoutDashboard size={20} className="text-rose-600" />
+                    项目改善报告库 (指挥中心)
+                    <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">项目附件</span>
+                  </h3>
+                  <button onClick={() => handleEditCategory(null, false, true)} className="text-sm bg-rose-50 text-rose-700 hover:bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-rose-200">
+                    <Plus size={16} /> 新增报告库
+                  </button>
+                </div>
+                {projectReportCategories.length === 0 ? (
+                   <div className="text-sm text-slate-400 italic p-4 border border-dashed border-slate-200 rounded-xl text-center">暂无项目报告资源</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {projectReportCategories.map(cat => (
+                      <div key={cat.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-100 relative group">
+                        <div className="flex justify-between items-start mb-3">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                              {cat.name}
+                            </h3>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleEditCategory(cat, false, true)} className="p-1 text-rose-600 hover:bg-rose-50 rounded"><Edit size={14} /></button>
                               <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
                             </div>
                         </div>
@@ -764,7 +975,7 @@ const Admin: React.FC = () => {
                     常规资源库
                     <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">用户下载资源</span>
                   </h3>
-                  <button onClick={() => handleEditCategory(null, false)} className="text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-blue-200">
+                  <button onClick={() => handleEditCategory(null, false, false)} className="text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-blue-200">
                     <Plus size={16} /> 新增分类
                   </button>
                 </div>
@@ -774,7 +985,7 @@ const Admin: React.FC = () => {
                       <div className="flex justify-between items-start mb-3">
                           <h3 className="font-bold text-slate-800">{cat.name}</h3>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleEditCategory(cat, false)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit size={14} /></button>
+                            <button onClick={() => handleEditCategory(cat, false, false)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit size={14} /></button>
                             <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
                           </div>
                       </div>
