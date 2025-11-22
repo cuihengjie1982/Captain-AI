@@ -1,11 +1,11 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MoreHorizontal, ThumbsUp, MessageSquare, Send, CheckSquare, BookOpen, MessageCircle, X, PenTool, Loader2, Sparkles, User as UserIcon, Clock, Heart, Share2, Quote } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, ThumbsUp, MessageSquare, Send, CheckSquare, BookOpen, MessageCircle, X, PenTool, Loader2, Sparkles, User as UserIcon, Clock, Heart, Quote, Bot } from 'lucide-react';
 import { getPostById, getComments, addComment, addReply, toggleCommentLike } from '../services/contentService';
 import { saveReadArticle, saveAdminNote } from '../services/userDataService';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
+import { getKnowledgeCategories } from '../services/resourceService'; 
 import { AppRoute, BlogPostComment, User, ChatMessage, Note, AdminNote } from '../types';
 
 const BlogDetail: React.FC = () => {
@@ -21,7 +21,7 @@ const BlogDetail: React.FC = () => {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
 
   // Side Panel States
-  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false); // Hidden by default on mobile
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false); 
   const [activePanelTab, setActivePanelTab] = useState<'chat' | 'notes'>('chat');
   
   // Chat States
@@ -37,101 +37,108 @@ const BlogDetail: React.FC = () => {
 
   // Text Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState<{x: number, y: number, text: string} | null>(null);
-  const articleContentRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // Refs for scroll handling and focus
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (id) {
       setComments(getComments(id));
-      saveReadArticle(id); // Track history
+      saveReadArticle(id); 
     }
     const storedUser = localStorage.getItem('captainUser');
     if (storedUser) {
       setCurrentUser(JSON.parse(storedUser));
     }
     
-    // Initialize Chat
     chatSessionRef.current = createChatSession();
     if (post) {
        setChatMessages([{ 
          id: 'init', 
          role: 'model', 
-         text: `您正在阅读《${post.title}》。关于文章内容，有什么我可以帮您解释的吗？` 
+         text: `您正在阅读《${post.title}》。\n\n您可以复制文章中的段落粘贴给我进行解释，或者将您的阅读心得记录在“我的笔记”中。` 
        }]);
     }
   }, [id, post]);
 
-  // --- Refined Text Selection Logic ---
+  // --- Robust Text Selection Logic ---
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
       
-      // If user is clicking/dragging inside the menu, do nothing
-      if (menuRef.current && selection && selection.anchorNode && menuRef.current.contains(selection.anchorNode)) {
+      // If clicking inside the popup menu itself, do not clear
+      if (menuRef.current && selection && selection.containsNode(menuRef.current, true)) {
         return;
       }
 
-      // If selection is empty, hide menu
-      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-        setSelectionMenu(null);
-        return;
-      }
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      // Prevent menu from closing if clicking inside the menu itself
-      if (menuRef.current && menuRef.current.contains(e.target as Node)) {
-        return;
-      }
-
-      const selection = window.getSelection();
       if (!selection || selection.isCollapsed) {
-        setSelectionMenu(null);
+        // Don't close immediately if we are interacting with the menu
         return;
       }
 
       const text = selection.toString().trim();
       if (!text) return;
 
-      // Ensure selection is inside the article content
-      if (articleContentRef.current && !articleContentRef.current.contains(selection.anchorNode)) {
-         setSelectionMenu(null);
+      // Check if selection is inside an input or textarea
+      const isInput = (node: Node | null) => {
+         let curr = node;
+         while (curr) {
+           if (curr.nodeName === 'INPUT' || curr.nodeName === 'TEXTAREA') return true;
+           curr = curr.parentNode;
+         }
+         return false;
+      };
+
+      if (isInput(selection.anchorNode)) {
          return;
       }
 
-      // Calculate position
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      
-      // Instant update, no delay
-      setSelectionMenu({
-        x: rect.left + (rect.width / 2),
-        y: rect.top + window.scrollY - 10, // Add scrollY to handle page scroll correctly
-        text: text
-      });
+      try {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          
+          if (rect.width > 0 && rect.height > 0) {
+              setSelectionMenu({
+                x: rect.left + (rect.width / 2),
+                y: rect.top - 12, 
+                text: text
+              });
+          }
+      } catch (err) {
+          console.error("Selection range error", err);
+      }
     };
 
-    // Listen globally for mouseup to catch end of selection anywhere
+    // We use mouseup to detect end of selection
+    const handleMouseUp = (e: MouseEvent) => {
+        // Delay slightly to let selection settle
+        setTimeout(() => {
+            handleSelectionChange();
+        }, 10);
+    };
+
+    // Clear menu on mousedown if clicking elsewhere
+    const handleMouseDown = (e: MouseEvent) => {
+       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+           setSelectionMenu(null);
+           // Optional: Clear selection if clicking away
+           // window.getSelection()?.removeAllRanges(); 
+       }
+    };
+
     document.addEventListener('mouseup', handleMouseUp);
-    // Listen for selection clear (e.g. clicking away)
-    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mousedown', handleMouseDown);
 
     return () => {
       document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mousedown', handleMouseDown);
     };
   }, []);
 
-  // Auto-focus note textarea when panel opens
   useEffect(() => {
     if (isSidePanelOpen && activePanelTab === 'notes' && noteTextareaRef.current) {
-        noteTextareaRef.current.focus();
-        // Place cursor at end
-        const len = noteTextareaRef.current.value.length;
-        noteTextareaRef.current.setSelectionRange(len, len);
+        setTimeout(() => {
+            noteTextareaRef.current?.focus();
+        }, 50);
     }
   }, [isSidePanelOpen, activePanelTab]);
 
@@ -155,8 +162,6 @@ const BlogDetail: React.FC = () => {
     if (id) setComments(getComments(id));
   };
 
-  // --- AI & Note Handlers ---
-
   const sendMessageInternal = async (text: string) => {
     if (!isSidePanelOpen) setIsSidePanelOpen(true);
     setActivePanelTab('chat');
@@ -165,10 +170,24 @@ const BlogDetail: React.FC = () => {
     setChatMessages(prev => [...prev, userMsg]);
     setIsThinking(true);
 
+    // AI Context Construction
+    const categories = getKnowledgeCategories();
+    const aiLibContent = categories
+      .filter(c => c.isAiRepository)
+      .flatMap(c => c.items.map(i => `- ${i.title}`))
+      .join('\n');
+
     const contextPrompt = `
-      Context: User is reading an article titled "${post?.title}".
-      Article Content Excerpt: "${post?.summary}".
-      User Question: ${text}
+      角色：Captain AI 呼叫中心专家助手。
+      当前上下文：用户正在阅读文章《${post?.title}》。
+      文章摘要：${post?.summary}
+      
+      知识库可用资源：
+      ${aiLibContent}
+      
+      用户问题：${text}
+      
+      请基于文章内容和呼叫中心专业知识回答。如果用户选中的是文章片段，请详细解释其含义。
     `;
 
     let replyText = '';
@@ -182,6 +201,7 @@ const BlogDetail: React.FC = () => {
     setIsThinking(false);
   };
 
+  // Menu Action: Explain with AI
   const handleMenuExplain = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -193,12 +213,15 @@ const BlogDetail: React.FC = () => {
     setIsSidePanelOpen(true);
     setActivePanelTab('chat');
     
-    sendMessageInternal(`请解释这段话的含义：“${textToExplain}”`);
+    const prompt = `请解释这段话的含义：“${textToExplain}”`;
+    sendMessageInternal(prompt);
     
     setSelectionMenu(null);
+    // Keep selection highlighted for reference or clear it? Usually clearing is better UX after action.
     window.getSelection()?.removeAllRanges();
   };
 
+  // Menu Action: Take Note
   const handleMenuTakeNote = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -210,7 +233,6 @@ const BlogDetail: React.FC = () => {
     setIsSidePanelOpen(true);
     setActivePanelTab('notes');
     
-    // Set the quote to state, separate from user input
     setCurrentQuote(textToQuote);
     
     setSelectionMenu(null);
@@ -226,11 +248,15 @@ const BlogDetail: React.FC = () => {
   const handleSaveNote = () => {
     if (!noteInput.trim()) return;
     
+    const now = new Date().toLocaleString('zh-CN');
+    
     const newNote: Note = {
         id: Date.now().toString(),
         timestamp: 0,
         content: noteInput,
-        quote: currentQuote || undefined
+        quote: currentQuote || undefined,
+        createdAt: now,
+        userName: currentUser.name
     };
     setNotes([newNote, ...notes]);
 
@@ -241,7 +267,7 @@ const BlogDetail: React.FC = () => {
             quote: currentQuote || undefined,
             lessonTitle: post.title,
             timestampDisplay: '文章摘录',
-            createdAt: new Date().toLocaleString('zh-CN'),
+            createdAt: now,
             userName: currentUser.name || 'Guest User',
             sourceType: 'article',
             sourceId: post.id
@@ -251,6 +277,10 @@ const BlogDetail: React.FC = () => {
 
     setNoteInput('');
     setCurrentQuote(null);
+  };
+
+  const toggleAssistant = () => {
+    setIsSidePanelOpen(!isSidePanelOpen);
   };
 
   if (!post) {
@@ -269,13 +299,13 @@ const BlogDetail: React.FC = () => {
       {selectionMenu && (
         <div 
           ref={menuRef}
-          className="absolute z-50 bg-slate-900 text-white rounded-lg shadow-xl flex items-center p-1 gap-1 transform -translate-x-1/2 -translate-y-full animate-in zoom-in duration-150 origin-bottom"
+          className="fixed z-[9999] bg-slate-900 text-white rounded-lg shadow-xl flex items-center p-1 gap-1 transform -translate-x-1/2 -translate-y-full animate-in zoom-in duration-150 origin-bottom select-none"
           style={{ left: selectionMenu.x, top: selectionMenu.y }}
-          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} // Prevent menu click from clearing selection
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} 
         >
           <button 
             onClick={handleMenuExplain}
-            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-700 rounded-md text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-700 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
           >
             <Sparkles size={14} className="text-blue-400" />
             AI 解释
@@ -283,7 +313,7 @@ const BlogDetail: React.FC = () => {
           <div className="w-px h-4 bg-slate-700"></div>
           <button 
             onClick={handleMenuTakeNote}
-            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-700 rounded-md text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-700 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
           >
             <CheckSquare size={14} className="text-green-400" />
             记笔记
@@ -293,7 +323,7 @@ const BlogDetail: React.FC = () => {
       )}
 
       {/* --- Main Content Area --- */}
-      <div className="flex-1 overflow-y-auto bg-white relative">
+      <div className="flex-1 overflow-y-auto bg-white relative" id="article-container">
         {/* Header */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-4 py-3 flex items-center justify-between z-20">
             <div className="flex items-center gap-3">
@@ -306,41 +336,34 @@ const BlogDetail: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
                 <button 
-                    onClick={() => setIsSidePanelOpen(!isSidePanelOpen)} 
-                    className={`p-2 rounded-full transition-colors flex items-center gap-2 text-sm font-medium ${isSidePanelOpen ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100'}`}
+                  onClick={toggleAssistant}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold transition-all border ${isSidePanelOpen ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-inner' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 shadow-sm'}`}
                 >
-                    <BookOpen size={20} />
-                    <span className="hidden md:inline">学习助手</span>
-                </button>
-                <button className="text-slate-600 p-2 hover:bg-slate-100 rounded-full">
-                    <Share2 size={20} />
+                   <Bot size={18} className={isSidePanelOpen ? "text-blue-600" : "text-slate-500"} />
+                   <span className="hidden md:inline">{isSidePanelOpen ? '收起助手' : 'AI 学习助手'}</span>
                 </button>
             </div>
         </div>
 
         <div className="max-w-[680px] mx-auto px-6 py-8 pb-32">
-            {/* Title Area */}
-            <h1 className="text-3xl font-bold text-slate-900 leading-tight mb-6 tracking-tight">
+            <h1 className="text-3xl font-bold text-slate-900 leading-tight mb-6 tracking-tight select-text">
                 {post.title}
             </h1>
 
-            {/* Meta Data */}
-            <div className="flex items-center gap-4 text-sm mb-8 pb-8 border-b border-slate-100">
+            <div className="flex items-center gap-4 text-sm mb-8 pb-8 border-b border-slate-100 select-text">
                 <span className="font-bold text-slate-900">{post.author}</span>
                 <span className="text-slate-400">{post.date}</span>
                 <span className="text-slate-400 flex items-center gap-1"><Clock size={14} /> {post.readTime}</span>
             </div>
 
-            {/* Content Body */}
+            {/* CRITICAL FIX: select-text class applied here */}
             <div 
-                ref={articleContentRef}
                 id="article-content"
-                className="prose prose-lg prose-slate max-w-none prose-headings:font-bold prose-a:text-blue-600 prose-img:rounded-xl prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-slate-50 prose-blockquote:py-2 prose-blockquote:px-4 selection:bg-blue-100 selection:text-blue-900"
+                className="prose prose-lg prose-slate max-w-none prose-headings:font-bold prose-a:text-blue-600 prose-img:rounded-xl prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-slate-50 prose-blockquote:py-2 prose-blockquote:px-4 selection:bg-blue-100 selection:text-blue-900 select-text cursor-text"
                 dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
-            {/* Footer Actions */}
-            <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between">
+            <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between select-none">
                 <div className="flex gap-4">
                     <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors">
                         <ThumbsUp size={18} /> 赞
@@ -352,11 +375,9 @@ const BlogDetail: React.FC = () => {
                 <span className="text-sm text-slate-400">阅读 3256</span>
             </div>
 
-            {/* Comments Section */}
-            <div className="mt-16">
+            <div className="mt-16 select-none">
                 <h3 className="font-bold text-xl text-slate-900 mb-6">精选评论 ({comments.length})</h3>
                 
-                {/* Comment Input */}
                 <div className="flex gap-4 mb-8">
                     <div className="w-10 h-10 rounded-full bg-slate-200 flex-shrink-0 overflow-hidden">
                         <UserIcon className="w-full h-full p-2 text-slate-400" />
@@ -367,7 +388,7 @@ const BlogDetail: React.FC = () => {
                                 value={commentInput}
                                 onChange={(e) => setCommentInput(e.target.value)}
                                 placeholder="写下您的想法..."
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none h-24 transition-all"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none h-24 transition-all select-text"
                             />
                             <button 
                                 onClick={handlePostComment}
@@ -380,7 +401,6 @@ const BlogDetail: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Comments List */}
                 <div className="space-y-8">
                     {comments.map(comment => (
                         <div key={comment.id} className="flex gap-4">
@@ -390,7 +410,7 @@ const BlogDetail: React.FC = () => {
                                     <span className="font-bold text-slate-800 text-sm">{comment.userName}</span>
                                     <span className="text-xs text-slate-400">{comment.date}</span>
                                 </div>
-                                <p className="text-slate-700 text-sm leading-relaxed mb-2">{comment.content}</p>
+                                <p className="text-slate-700 text-sm leading-relaxed mb-2 select-text">{comment.content}</p>
                                 
                                 <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
                                     <button 
@@ -408,14 +428,13 @@ const BlogDetail: React.FC = () => {
                                     </button>
                                 </div>
 
-                                {/* Reply Input */}
                                 {activeReplyId === comment.id && (
                                     <div className="flex gap-3 mt-3 mb-4 animate-in fade-in slide-in-from-top-2">
                                         <input 
                                             type="text"
                                             value={replyInput[comment.id] || ''}
                                             onChange={(e) => setReplyInput({ ...replyInput, [comment.id]: e.target.value })}
-                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 select-text"
                                             placeholder={`回复 ${comment.userName}...`}
                                         />
                                         <button 
@@ -427,7 +446,6 @@ const BlogDetail: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Replies */}
                                 {comment.replies.length > 0 && (
                                     <div className="bg-slate-50 rounded-lg p-4 space-y-4 mt-2">
                                         {comment.replies.map(reply => (
@@ -437,7 +455,7 @@ const BlogDetail: React.FC = () => {
                                                     <div className="flex items-center justify-between mb-0.5">
                                                         <span className="font-bold text-slate-700 text-xs">{reply.userName}</span>
                                                     </div>
-                                                    <p className="text-slate-600 text-xs leading-relaxed mb-1.5">
+                                                    <p className="text-slate-600 text-xs leading-relaxed mb-1.5 select-text">
                                                         {reply.content}
                                                     </p>
                                                     <button 
@@ -466,20 +484,19 @@ const BlogDetail: React.FC = () => {
             isSidePanelOpen ? 'translate-x-0' : 'translate-x-full'
          } lg:relative lg:transform-none lg:w-[380px] lg:border-l lg:shadow-none ${!isSidePanelOpen && 'lg:hidden'}`}
       >
-         {/* Panel Header */}
          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
             <div className="flex gap-4">
                 <button 
                     onClick={() => setActivePanelTab('chat')}
-                    className={`text-sm font-bold pb-3 -mb-3.5 border-b-2 transition-colors ${activePanelTab === 'chat' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}
+                    className={`text-sm font-bold pb-3 -mb-3.5 border-b-2 transition-colors flex items-center gap-2 ${activePanelTab === 'chat' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}
                 >
-                    AI 助手
+                    <Sparkles size={14} /> AI 助手
                 </button>
                 <button 
                     onClick={() => setActivePanelTab('notes')}
-                    className={`text-sm font-bold pb-3 -mb-3.5 border-b-2 transition-colors ${activePanelTab === 'notes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}
+                    className={`text-sm font-bold pb-3 -mb-3.5 border-b-2 transition-colors flex items-center gap-2 ${activePanelTab === 'notes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}
                 >
-                    我的笔记
+                    <PenTool size={14} /> 我的笔记
                 </button>
             </div>
             <button onClick={() => setIsSidePanelOpen(false)} className="p-1 hover:bg-slate-100 rounded lg:hidden">
@@ -487,10 +504,8 @@ const BlogDetail: React.FC = () => {
             </button>
          </div>
 
-         {/* Panel Content */}
          <div className="flex-1 overflow-hidden bg-slate-50/50 relative">
             
-            {/* CHAT TAB */}
             {activePanelTab === 'chat' && (
                 <div className="absolute inset-0 flex flex-col">
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -501,7 +516,7 @@ const BlogDetail: React.FC = () => {
                                         ? 'bg-blue-600 text-white rounded-tr-none' 
                                         : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
                                 }`}>
-                                    {msg.text}
+                                    <div className="whitespace-pre-wrap select-text">{msg.text}</div>
                                 </div>
                             </div>
                         ))}
@@ -520,7 +535,7 @@ const BlogDetail: React.FC = () => {
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                                placeholder="关于这篇文章的疑问..."
+                                placeholder="输入问题，或粘贴文章段落让 AI 解释..."
                                 className="w-full pl-4 pr-10 py-3 bg-slate-100 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm outline-none transition-all"
                             />
                             <button 
@@ -535,18 +550,16 @@ const BlogDetail: React.FC = () => {
                 </div>
             )}
 
-            {/* NOTES TAB */}
             {activePanelTab === 'notes' && (
                 <div className="absolute inset-0 flex flex-col">
                     <div className="p-4 border-b border-slate-200 bg-white">
-                        {/* Display Active Quote */}
                         {currentQuote && (
                             <div className="mb-3 p-3 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg relative group animate-in fade-in slide-in-from-top-2">
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <Quote size={12} className="text-blue-500 fill-current" />
                                     <span className="text-[10px] font-bold text-blue-600 uppercase">原文摘录</span>
                                 </div>
-                                <p className="text-xs text-slate-600 italic line-clamp-3">“{currentQuote}”</p>
+                                <p className="text-xs text-slate-600 italic line-clamp-3 select-text">“{currentQuote}”</p>
                                 <button 
                                     onClick={() => setCurrentQuote(null)}
                                     className="absolute top-1 right-1 p-1.5 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
@@ -562,7 +575,7 @@ const BlogDetail: React.FC = () => {
                                 ref={noteTextareaRef}
                                 value={noteInput}
                                 onChange={(e) => setNoteInput(e.target.value)}
-                                placeholder={currentQuote ? "针对这段文字，您的想法是..." : "记录阅读心得..."}
+                                placeholder={currentQuote ? "针对这段文字，您的想法是..." : "记录阅读心得，或粘贴精彩摘录..."}
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none h-24"
                             />
                             <button
@@ -579,23 +592,38 @@ const BlogDetail: React.FC = () => {
                             <div className="text-center text-slate-400 mt-10">
                                 <PenTool size={32} className="mx-auto mb-2 opacity-20" />
                                 <p className="text-sm">暂无笔记</p>
-                                <p className="text-xs mt-1">选中文本可快速添加引用</p>
+                                <p className="text-xs mt-1">选中文本可快速添加引用，或直接在此记录</p>
                             </div>
                         )}
                         {notes.map((note) => (
-                            <div key={note.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <div key={note.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
                                 {note.quote && (
-                                    <div className="mb-3 pl-3 border-l-2 border-slate-200">
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                            <Quote size={10} className="text-slate-300 fill-current" />
-                                            <span className="text-[10px] font-medium text-slate-400">原文</span>
-                                        </div>
-                                        <p className="text-xs text-slate-500 italic line-clamp-3">“{note.quote}”</p>
+                                    <div className="relative pl-3 border-l-2 border-blue-400 bg-slate-50 p-2 rounded-r-lg">
+                                         <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                                <Quote size={10} />
+                                            </span>
+                                            <span className="text-xs font-bold text-slate-500">原文摘录</span>
+                                         </div>
+                                         <p className="text-xs text-slate-600 italic font-serif leading-relaxed select-text">
+                                            “{note.quote}”
+                                         </p>
                                     </div>
                                 )}
+
                                 <div className="flex items-start gap-2">
-                                    <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></div>
-                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <UserIcon size={14} className="text-indigo-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-baseline mb-1">
+                                             <span className="text-xs font-bold text-slate-800">{currentUser.name || '我'}</span>
+                                             <span className="text-[10px] text-slate-400">{note.createdAt || '刚刚'}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap select-text">
+                                            {note.content}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         ))}

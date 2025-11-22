@@ -1,12 +1,12 @@
 
-
-import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User } from '../types';
+import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User, EmailLog } from '../types';
 
 const UPLOADS_KEY = 'captain_user_uploads';
 const NOTES_KEY = 'captain_admin_notes';
 const HISTORY_KEY = 'captain_user_history';
 const ARTICLE_HISTORY_KEY = 'captain_read_articles';
 const USERS_DB_KEY = 'captain_users_db';
+const EMAIL_LOGS_KEY = 'captain_email_logs';
 
 // Mock Data for Uploads
 const MOCK_UPLOADS: UserUpload[] = [
@@ -34,10 +34,10 @@ const MOCK_UPLOADS: UserUpload[] = [
 
 // Mock Data for Users
 const MOCK_USERS: User[] = [
-    { id: 'u1', name: '张经理', email: 'zhang@example.com', role: 'user', plan: 'pro', phone: '13800138000', isAuthenticated: true },
-    { id: 'u2', name: '李主管', email: 'li@example.com', role: 'user', plan: 'free', phone: '13900139000', isAuthenticated: true },
-    { id: 'admin', name: 'Captain Admin', email: 'admin@captain.ai', role: 'admin', plan: 'pro', phone: '18888888888', isAuthenticated: true },
-    { id: 'u3', name: '王专员', email: 'wang@example.com', role: 'user', plan: 'free', phone: '15000150000', isAuthenticated: true }
+    { id: 'u1', name: '张经理', email: 'zhang@example.com', role: 'user', plan: 'pro', phone: '13800138000', password: 'password123', isAuthenticated: true },
+    { id: 'u2', name: '李主管', email: 'li@example.com', role: 'user', plan: 'free', phone: '13900139000', password: 'password123', isAuthenticated: true },
+    { id: 'admin', name: 'Captain Admin', email: 'admin@captain.ai', role: 'admin', plan: 'pro', phone: '18888888888', password: 'admin', isAuthenticated: true },
+    { id: 'u3', name: '王专员', email: 'wang@example.com', role: 'user', plan: 'free', phone: '15000150000', password: 'password123', isAuthenticated: true }
 ];
 
 // --- User Uploads Logic ---
@@ -184,4 +184,89 @@ export const deleteUser = (id: string): void => {
     const users = getAllUsers();
     const newUsers = users.filter(u => u.id !== id);
     localStorage.setItem(USERS_DB_KEY, JSON.stringify(newUsers));
+};
+
+// Update user plan (for payment success)
+export const updateUserPlan = (userId: string, plan: 'free' | 'pro'): void => {
+    const users = getAllUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx >= 0) {
+        users[idx].plan = plan;
+        localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+        
+        // Update current session if it matches
+        const currentUser = JSON.parse(localStorage.getItem('captainUser') || '{}');
+        if (currentUser.id === userId) {
+            currentUser.plan = plan;
+            localStorage.setItem('captainUser', JSON.stringify(currentUser));
+        }
+    }
+};
+
+// --- Email Verification Logic (Simulation) ---
+
+export const getEmailLogs = (): EmailLog[] => {
+  try {
+    const stored = localStorage.getItem(EMAIL_LOGS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch(e) { console.error(e); }
+  return [];
+};
+
+export const sendVerificationCode = (email: string): string => {
+  // Generate random 6 digit code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  const newLog: EmailLog = {
+    id: Date.now().toString(),
+    recipient: email,
+    code: code,
+    subject: 'Captain AI 注册验证码',
+    sentAt: new Date().toLocaleString('zh-CN'),
+    status: 'sent'
+  };
+
+  const logs = getEmailLogs();
+  logs.unshift(newLog);
+  localStorage.setItem(EMAIL_LOGS_KEY, JSON.stringify(logs));
+  
+  console.log(`[Email Simulation] Sent code ${code} to ${email}`);
+  return code;
+};
+
+export const verifyEmailCode = (email: string, code: string): boolean => {
+  // In a real app, we'd check against a DB and expiration.
+  // Here we check against the logs for simplicity in simulation.
+  const logs = getEmailLogs();
+  const match = logs.find(l => l.recipient === email && l.code === code);
+  
+  if (match) {
+     // Update status to verified
+     match.status = 'verified';
+     localStorage.setItem(EMAIL_LOGS_KEY, JSON.stringify(logs));
+     return true;
+  }
+  return false;
+};
+
+// --- Authentication Helper Functions ---
+
+export const findUserByEmail = (email: string): User | undefined => {
+    const users = getAllUsers();
+    return users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+};
+
+export const registerUser = (name: string, email: string, password?: string): User => {
+    const newUser: User = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        role: 'user',
+        plan: 'free', // Default free
+        password: password || '123456',
+        isAuthenticated: true
+    };
+    // Persist to DB so Admin can see it
+    saveUser(newUser);
+    return newUser;
 };

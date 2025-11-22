@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload, User, KnowledgeItem } from '../types';
@@ -8,7 +6,7 @@ import {
   ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
   X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock, Crown,
-  PenTool, MessageSquare
+  PenTool, MessageSquare, Stethoscope
 } from 'lucide-react';
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
@@ -20,6 +18,7 @@ interface Message {
   id: string;
   sender: 'ai' | 'user';
   text: string;
+  action?: 'switch_to_expert'; // Added action type
 }
 
 // Helper Component for Copy Button
@@ -192,6 +191,7 @@ const Diagnosis: React.FC = () => {
       let aiResponseText = '';
       let nextStep = step + 1;
       const lowerInput = input.toLowerCase();
+      let action: 'switch_to_expert' | undefined = undefined;
 
       if (step === 0) {
         if (lowerInput.includes('钱') || lowerInput.includes('工资') || lowerInput.includes('薪')) {
@@ -203,13 +203,20 @@ const Diagnosis: React.FC = () => {
         aiResponseText = "了解。那么您认为如果这个问题得到解决，我们最希望看到的关键结果（Key Result）是什么？";
       } else if (step === 2) {
         aiResponseText = "谢谢。根据您提供的信息，我已经为您初步匹配了相关的诊断工具和解决方案模版。";
-        nextStep = 100; 
+        nextStep = 100;
+        action = 'switch_to_expert';
       } else {
          aiResponseText = "我已记录这一点。还有其他需要补充的背景信息吗？如果没有，我们可以生成方案了。";
          nextStep = 100;
+         action = 'switch_to_expert';
       }
 
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponseText }]);
+      setMessages(prev => [...prev, { 
+          id: (Date.now() + 1).toString(), 
+          sender: 'ai', 
+          text: aiResponseText,
+          action
+      }]);
       setIsTyping(false);
       setStep(nextStep);
     }, 1500);
@@ -387,6 +394,17 @@ const Diagnosis: React.FC = () => {
                         }`}>
                           <div className="whitespace-pre-wrap">{msg.text}</div>
                           {msg.sender === 'ai' && <CopyButton text={msg.text} />}
+                          
+                          {/* Action Link */}
+                          {msg.action === 'switch_to_expert' && (
+                             <button 
+                               onClick={() => setActiveTab('expert')}
+                               className="mt-3 text-blue-600 underline hover:text-blue-800 text-xs font-bold flex items-center gap-1 bg-blue-50 p-2 rounded-lg transition-colors w-fit"
+                             >
+                               <Stethoscope size={14} />
+                               专家人工诊断通道
+                             </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -609,7 +627,7 @@ const Diagnosis: React.FC = () => {
           </div>
         )}
 
-        {/* --- MODAL: Resource Selection Modal (For Pro Users) --- */}
+        {/* ... (Modals code omitted for brevity as it remains unchanged) ... */}
         {showResourceModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
@@ -653,7 +671,6 @@ const Diagnosis: React.FC = () => {
             </div>
         )}
 
-        {/* --- MODAL: Payment Gate (Upgrade Prompt) --- */}
         {showPaymentGate && (
            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
@@ -665,9 +682,7 @@ const Diagnosis: React.FC = () => {
                  </button>
 
                  <div className="flex h-full flex-col md:flex-row">
-                    {/* Left: Premium Intro */}
                     <div className="w-full md:w-2/5 bg-slate-900 text-white p-8 flex flex-col relative overflow-hidden">
-                       {/* Background decoration */}
                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-3xl opacity-10 -mr-16 -mt-16"></div>
                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600 rounded-full blur-3xl opacity-10 -ml-16 -mb-16"></div>
                        
@@ -720,7 +735,6 @@ const Diagnosis: React.FC = () => {
                        </div>
                     </div>
 
-                    {/* Right: Knowledge Base List Preview */}
                     <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden">
                        <div className="p-6 border-b border-slate-200 bg-white flex justify-between items-center">
                           <div>
@@ -746,8 +760,6 @@ const Diagnosis: React.FC = () => {
                                 </div>
                              </div>
                           ))}
-                          
-                          {/* Bottom gradient fade */}
                           <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"></div>
                        </div>
                     </div>

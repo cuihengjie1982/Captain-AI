@@ -1,5 +1,4 @@
 
-
 export interface User {
   id: string;
   name: string;
@@ -7,6 +6,7 @@ export interface User {
   plan: 'free' | 'pro'; // Added plan
   email?: string;
   phone?: string;
+  password?: string; // Added password for login logic
   isAuthenticated: boolean;
 }
 
@@ -31,16 +31,41 @@ export interface IntroVideo {
   isVisible: boolean;
 }
 
+// New Interface for About Us Section
+export interface AboutUsInfo {
+  title: string;
+  description: string;
+  teamInfo: string;
+  websiteUrl: string;
+  contactEmail?: string;
+}
+
 export interface Note {
   id: string;
   timestamp: number; // Seconds
   content: string;
   quote?: string; // Selected text from source
+  createdAt?: string; // Added for display
+  userName?: string; // Added for display
 }
 
 export interface KPIRecord {
-  month: string;
+  month: string; // Format: YYYY-MM
   value: number;
+}
+
+// NEW: KPI Item Definition
+export interface KPIItem {
+  id: string;
+  label: string;
+  value: number; // Current Value
+  unit: string;
+  target: number; // Target Value
+  trend: number; // Static Trend (Optional, for quick view)
+  timeWindow: 'Month' | 'Quarter' | 'HalfYear' | 'Year'; // Default view
+  aggregation: 'sum' | 'avg'; // How to aggregate data: Sum or Average
+  direction: 'up' | 'down'; // 'up' = Higher is better, 'down' = Lower is better
+  chartData: KPIRecord[];
 }
 
 export interface ChatMessage {
@@ -101,28 +126,28 @@ export interface RiskDetailItem {
   status: 'critical' | 'warning' | 'info';
 }
 
+// MODIFIED: DashboardProject
 export interface DashboardProject {
   id: string;
   name: string;
   category: string;
   content: string; // HTML content
   updatedAt: string;
-  kpi: {
-    label: string;
-    value: number;
-    unit: string;
-    trend: number;
-    riskLabel: string;
-    riskValue: string;
-    riskIconName: 'Users' | 'Smile' | 'Clock' | 'Activity' | 'Zap';
-    riskColor: string;
+  
+  // Changed from single object to array
+  kpis: KPIItem[];
+  
+  // Risk configuration moved to top level object
+  risk: {
+      label: string;
+      value: string;
+      icon: 'Users' | 'Smile' | 'Clock' | 'Activity' | 'Zap';
+      color: string;
+      details?: RiskDetailItem[];
   };
-  chartData: KPIRecord[];
-  // Added for Project Improvement Reports
+
   actionPlanFile?: string; 
   meetingRecordFile?: string;
-  // Added for Risk Drill-down
-  riskDetails?: RiskDetailItem[];
 }
 
 // New Interfaces for User Data Management
@@ -195,23 +220,27 @@ export interface BlogPostComment {
 }
 
 // Permission System Types
-export type PermissionKey = 
-  | 'download_resources'   // Download files in Diagnosis/Dashboard
-  | 'expert_diagnosis'     // Access Expert Diagnosis tab actions
-  | 'export_transcript'    // Export video transcripts
-  | 'advanced_analytics';  // View advanced charts (placeholder for future)
+export type PermissionKey = string;
+
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+}
 
 export interface PermissionConfig {
   free: Record<PermissionKey, boolean>;
   pro: Record<PermissionKey, boolean>;
 }
 
-export const PERMISSION_LABELS: Record<PermissionKey, string> = {
-  'download_resources': '下载专业资源/报告',
-  'expert_diagnosis': '使用专家人工诊断',
-  'export_transcript': '导出课程字幕/文稿',
-  'advanced_analytics': '查看高级数据分析'
-};
+// NEW: Email Log Interface
+export interface EmailLog {
+  id: string;
+  recipient: string;
+  code: string;
+  subject: string;
+  sentAt: string;
+  status: 'sent' | 'verified';
+}
 
 export enum AppRoute {
   LOGIN = '/login',

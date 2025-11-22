@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppRoute, Lesson } from '../types';
-import { Search, Play, Clock, Star, MoreHorizontal, Users, CalendarClock, ShieldCheck, TrendingUp, LayoutGrid, Activity } from 'lucide-react';
+import { Search, Play, Clock, Star, MoreHorizontal, Users, CalendarClock, ShieldCheck, TrendingUp, LayoutGrid, Activity, BookOpen } from 'lucide-react';
 import { getLessons } from '../services/courseService';
 
 const Solution: React.FC = () => {
@@ -16,13 +16,27 @@ const Solution: React.FC = () => {
     setLessons(data);
   }, []);
 
+  // Dynamically extract unique categories
+  const uniqueCategories = Array.from(new Set(lessons.map(l => l.category).filter(Boolean))) as string[];
+  
+  // Build category tabs with icons (fallback to BookOpen if unknown)
   const categories = [
     { id: 'all', name: '全部课程', icon: LayoutGrid },
-    { id: '人员管理', name: '人员管理', icon: Users },
-    { id: 'WFM管理', name: 'WFM管理', icon: CalendarClock },
-    { id: '质量与体验', name: '质量与体验', icon: ShieldCheck },
-    { id: '运营效率', name: '运营效率', icon: TrendingUp },
-    { id: '客户满意度', name: '客户满意度', icon: Activity },
+    ...uniqueCategories.map(cat => {
+        // Try to match known categories to icons
+        let icon = BookOpen;
+        if (cat.includes('人员') || cat.includes('管理')) icon = Users;
+        else if (cat.includes('WFM') || cat.includes('排班')) icon = CalendarClock;
+        else if (cat.includes('质量') || cat.includes('体验')) icon = ShieldCheck;
+        else if (cat.includes('效率')) icon = TrendingUp;
+        else if (cat.includes('满意度') || cat.includes('客户')) icon = Activity;
+        
+        return {
+            id: cat,
+            name: cat,
+            icon: icon
+        };
+    })
   ];
 
   const filteredLessons = lessons.filter(l => {
@@ -82,7 +96,7 @@ const Solution: React.FC = () => {
       {/* Results Summary */}
       <div className="mb-6 flex items-center justify-between">
         <h2 className="font-bold text-slate-800 flex items-center gap-2">
-          {activeCategory === 'all' ? '所有课程' : categories.find(c => c.id === activeCategory)?.name}
+          {activeCategory === 'all' ? '所有课程' : activeCategory}
           <span className="text-xs font-normal bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
             {filteredLessons.length}
           </span>

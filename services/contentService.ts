@@ -1,11 +1,12 @@
 
-
-import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User } from '../types';
+import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
 const INTRO_VIDEO_KEY = 'captain_intro_video';
 const DIAGNOSIS_ISSUES_KEY = 'captain_diagnosis_issues';
 const COMMENTS_KEY = 'captain_blog_comments';
+const PAYMENT_QR_KEY = 'captain_payment_qr';
+const ABOUT_US_KEY = 'captain_about_us';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -143,6 +144,14 @@ const DEFAULT_DIAGNOSIS_ISSUES: DiagnosisIssue[] = [
   }
 ];
 
+const DEFAULT_ABOUT_US: AboutUsInfo = {
+  title: '关于我们',
+  description: 'Captain AI 是由行业领先的呼叫中心管理咨询公司打造的智能辅助平台。我们致力于通过人工智能与管理科学的结合，帮助运营管理者解决人才保留、效率提升和客户体验优化等核心难题。',
+  teamInfo: '我们的团队由拥有20年+经验的BPO运营专家、数据科学家及全栈工程师组成。我们深知一线管理的痛点，因此开发了这套“更懂业务”的AI系统。',
+  websiteUrl: 'https://www.cmbpo.com',
+  contactEmail: 'contact@cmbpo.com'
+};
+
 // Mock Comments Data
 const DEFAULT_COMMENTS: BlogPostComment[] = [
   {
@@ -267,6 +276,34 @@ export const deleteDiagnosisIssue = (id: string): void => {
   localStorage.setItem(DIAGNOSIS_ISSUES_KEY, JSON.stringify(newIssues));
 };
 
+// --- About Us Methods ---
+
+export const getAboutUsInfo = (): AboutUsInfo => {
+  try {
+    const stored = localStorage.getItem(ABOUT_US_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  
+  localStorage.setItem(ABOUT_US_KEY, JSON.stringify(DEFAULT_ABOUT_US));
+  return DEFAULT_ABOUT_US;
+};
+
+export const saveAboutUsInfo = (info: AboutUsInfo): void => {
+  localStorage.setItem(ABOUT_US_KEY, JSON.stringify(info));
+};
+
+// --- Payment QR Code Method ---
+
+export const getPaymentQRCode = (): string => {
+  try {
+    return localStorage.getItem(PAYMENT_QR_KEY) || '';
+  } catch(e) { return ''; }
+};
+
+export const savePaymentQRCode = (url: string): void => {
+  localStorage.setItem(PAYMENT_QR_KEY, url);
+};
+
 // --- Comment Management Methods ---
 
 const loadComments = (): BlogPostComment[] => {
@@ -297,7 +334,6 @@ export const addComment = (postId: string, content: string, user: Partial<User>)
     replies: []
   };
   
-  // Insert at top (but below pinned if any logic existed, here just unshift)
   comments.unshift(newComment);
   localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
   return newComment;
