@@ -76,9 +76,12 @@ export interface Lesson {
 
 // Moved from Diagnosis.tsx
 export interface KnowledgeItem {
+  id?: string; // Make optional for backward compatibility or generate on fly
   title: string; 
   type: 'xlsx' | 'pdf' | 'ppt' | 'doc'; 
   size: string;
+  tags?: string[]; // New: Tags for the file
+  url?: string; // New: File URL
 }
 
 export interface KnowledgeCategory {

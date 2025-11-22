@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
@@ -42,6 +44,10 @@ const Admin: React.FC = () => {
   const [editingProject, setEditingProject] = useState<Partial<DashboardProject> | null>(null);
   const [editingIssue, setEditingIssue] = useState<Partial<DiagnosisIssue> | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Helper States for Knowledge Item Editing
+  const [newItem, setNewItem] = useState<Partial<KnowledgeItem>>({ title: '', type: 'doc', size: '', tags: [] });
+  const [showItemForm, setShowItemForm] = useState(false);
 
   // Helper States
   const [importStatus, setImportStatus] = useState<'idle' | 'uploading' | 'processing' | 'success'>('idle');
@@ -294,6 +300,9 @@ const Admin: React.FC = () => {
 
   // --- Knowledge Base Handlers ---
   const handleEditCategory = (cat: KnowledgeCategory | null, isAi: boolean = false, isProjectReports: boolean = false) => {
+    setShowItemForm(false);
+    setNewItem({ title: '', type: 'doc', size: '', tags: [] });
+    
     if (cat) {
       setEditingCategory({ ...cat });
     } else {
@@ -308,10 +317,31 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleResourceFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewItem({
+        ...newItem,
+        title: file.name,
+        size: (file.size / 1024).toFixed(1) + ' KB',
+        type: file.name.split('.').pop() as any || 'doc'
+      });
+    }
+  };
+
   const handleAddItemToCategory = () => {
-    if (editingCategory) {
-       const newItem: KnowledgeItem = { title: '新文件', type: 'doc', size: '0 KB' };
-       setEditingCategory({ ...editingCategory, items: [...(editingCategory.items || []), newItem] });
+    if (editingCategory && newItem.title) {
+       const itemToAdd: KnowledgeItem = { 
+         id: Date.now().toString(),
+         title: newItem.title || '新文件', 
+         type: newItem.type || 'doc', 
+         size: newItem.size || '0 KB',
+         tags: newItem.tags || [],
+         url: '#' // Simulated URL
+       };
+       setEditingCategory({ ...editingCategory, items: [...(editingCategory.items || []), itemToAdd] });
+       setNewItem({ title: '', type: 'doc', size: '', tags: [] });
+       setShowItemForm(false);
     }
   };
 
@@ -320,14 +350,6 @@ const Admin: React.FC = () => {
       const newItems = [...editingCategory.items];
       newItems.splice(idx, 1);
       setEditingCategory({ ...editingCategory, items: newItems });
-    }
-  };
-
-  const handleUpdateItem = (idx: number, field: keyof KnowledgeItem, value: string) => {
-    if (editingCategory && editingCategory.items) {
-        const newItems = [...editingCategory.items];
-        newItems[idx] = { ...newItems[idx], [field]: value };
-        setEditingCategory({ ...editingCategory, items: newItems });
     }
   };
 
@@ -733,6 +755,21 @@ const Admin: React.FC = () => {
                            <img src={editingBlog.thumbnail} className="mt-2 h-32 object-cover rounded-lg border border-slate-200" alt="cover preview" />
                        )}
                      </div>
+                     
+                     {/* Added Article Original Link Field */}
+                     <div className="col-span-2">
+                       <label className="block text-sm text-slate-500 mb-1">文章原文链接</label>
+                       <div className="relative">
+                          <LinkIcon size={16} className="absolute left-3 top-3 text-slate-400" />
+                          <input 
+                            className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                            value={editingBlog.originalUrl || ''} 
+                            onChange={e => setEditingBlog({...editingBlog, originalUrl: e.target.value})} 
+                            placeholder="https://example.com/original-article" 
+                          />
+                       </div>
+                     </div>
+
                      <div className="col-span-2">
                        <label className="block text-sm text-slate-500 mb-1">HTML 内容</label>
                        <textarea className="w-full border p-2 rounded h-48 font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={editingBlog.content} onChange={e => setEditingBlog({...editingBlog, content: e.target.value})} />
@@ -829,7 +866,7 @@ const Admin: React.FC = () => {
       {/* --- COURSE MANAGEMENT --- */}
       {activeTab === 'course' && (
         <div className="space-y-8">
-           {/* Intro Video Section (Unchanged UI Logic) */}
+           {/* Intro Video Section */}
            {introVideo && (
              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between mb-6"><h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><MonitorPlay size={20} className="text-blue-600" /> 首页视频配置</h3><button onClick={handleSaveIntroVideo} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">保存配置</button></div>
@@ -838,6 +875,20 @@ const Admin: React.FC = () => {
                     <div>
                         <label className="block text-sm text-slate-500 mb-1">视频文件</label>
                         <div className="flex gap-2"><input className="flex-1 border p-2 rounded text-sm" value={introVideo.url} readOnly /><label className="bg-slate-100 px-3 py-2 rounded cursor-pointer text-sm">上传<input type="file" className="hidden" onChange={(e) => handleVideoUploadSim(e, 'video')} /></label></div>
+                    </div>
+                    {/* Added Cover Image Field for Intro Video */}
+                    <div className="col-span-2">
+                        <label className="block text-sm text-slate-500 mb-1">封面图片</label>
+                        <div className="flex gap-2">
+                            <input className="flex-1 border p-2 rounded text-sm" value={introVideo.thumbnail} onChange={e => setIntroVideo({...introVideo, thumbnail: e.target.value})} placeholder="封面图片链接" />
+                            <label className="bg-slate-100 px-3 py-2 rounded cursor-pointer text-sm flex items-center gap-1">
+                                <Upload size={14} /> 上传
+                                <input type="file" className="hidden" accept="image/*" onChange={(e) => handleVideoUploadSim(e, 'cover')} />
+                            </label>
+                        </div>
+                        {introVideo.thumbnail && (
+                            <img src={introVideo.thumbnail} className="mt-2 h-32 object-cover rounded-lg border border-slate-200" alt="intro cover" />
+                        )}
                     </div>
                 </div>
              </div>
@@ -869,9 +920,31 @@ const Admin: React.FC = () => {
                             />
                         </div>
                     </div>
+                    
+                    {/* Added Cover Image Field for Lesson */}
+                    <div className="col-span-2">
+                        <label className="block text-sm text-slate-500 mb-1">课程封面</label>
+                        <div className="flex gap-2">
+                            <input className="flex-1 border p-2 rounded" value={editingLesson.thumbnail} onChange={e => setEditingLesson({...editingLesson, thumbnail: e.target.value})} placeholder="图片链接" />
+                            <label className="bg-slate-100 px-3 py-2 rounded cursor-pointer text-sm flex items-center gap-1">
+                                <Upload size={14} /> 上传
+                                <input type="file" className="hidden" accept="image/*" onChange={(e) => handleLessonFileUpload(e, 'image')} />
+                            </label>
+                        </div>
+                        {editingLesson.thumbnail && (
+                            <img src={editingLesson.thumbnail} className="mt-2 h-32 object-cover rounded-lg border border-slate-200" alt="lesson cover" />
+                        )}
+                    </div>
+
                     <div className="col-span-2">
                         <label className="block text-sm text-slate-500 mb-1">视频源</label>
-                        <div className="flex gap-2"><input className="flex-1 border p-2 rounded" value={editingLesson.videoUrl} onChange={e => setEditingLesson({...editingLesson, videoUrl: e.target.value})} /><label className="bg-slate-100 px-3 py-2 rounded cursor-pointer text-sm">上传<input type="file" className="hidden" onChange={(e) => handleLessonFileUpload(e, 'video')} /></label></div>
+                        <div className="flex gap-2">
+                            <input className="flex-1 border p-2 rounded" value={editingLesson.videoUrl} onChange={e => setEditingLesson({...editingLesson, videoUrl: e.target.value})} placeholder="视频链接 (MP4/URL)" />
+                            <label className="bg-slate-100 px-3 py-2 rounded cursor-pointer text-sm flex items-center gap-1">
+                                <Upload size={14} /> 上传
+                                <input type="file" className="hidden" onChange={(e) => handleLessonFileUpload(e, 'video')} />
+                            </label>
+                        </div>
                     </div>
                     <div><label className="block text-sm text-slate-500 mb-1">时长 (10:00)</label><input className="w-full border p-2 rounded" value={editingLesson.duration} onChange={e => setEditingLesson({...editingLesson, duration: e.target.value})} /></div>
                     <div><label className="block text-sm text-slate-500 mb-1">秒数</label><input type="number" className="w-full border p-2 rounded" value={editingLesson.durationSec} onChange={e => setEditingLesson({...editingLesson, durationSec: parseInt(e.target.value)||0})} /></div>
@@ -921,20 +994,156 @@ const Admin: React.FC = () => {
         </div>
       )}
 
-      {/* --- KNOWLEDGE, DASHBOARD, USERDATA Tabs (Kept mostly as is, just condensed structure for XML limit) --- */}
+      {/* --- KNOWLEDGE BASE MANAGEMENT --- */}
       {activeTab === 'knowledge' && (
-          /* Existing Knowledge Logic */
           <div className="space-y-6">
-             {/* Simplified for brevity: reusing existing logic structure */}
-             <div className="flex justify-between mb-4"><h3 className="font-bold text-slate-800 flex gap-2"><Database size={20} /> 资源库管理</h3><button onClick={() => handleEditCategory(null)} className="bg-blue-50 text-blue-600 px-3 py-1 rounded border border-blue-100 text-sm">+ 新增分类</button></div>
-             {/* Editor & List Implementation matching previous version */}
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Database size={20} /> 资源库管理</h3>
+                <button onClick={() => handleEditCategory(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm border border-blue-700 text-sm flex items-center gap-1 hover:bg-blue-700">
+                   <Plus size={16} /> 新增分类
+                </button>
+             </div>
+             
              {editingCategory ? (
-                 <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
-                     <input className="w-full border p-2 rounded" value={editingCategory.name} onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} placeholder="分类名称" />
-                     <div className="flex justify-end gap-2"><button onClick={()=>setEditingCategory(null)} className="px-3 py-1 border rounded">取消</button><button onClick={handleSaveCategory} className="px-3 py-1 bg-blue-600 text-white rounded">保存</button></div>
+                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-lg animate-in zoom-in-95">
+                     <h4 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-800">
+                        {editingCategory.id ? '编辑分类' : '新增分类'}
+                     </h4>
+                     
+                     {/* Category Basic Info */}
+                     <div className="mb-6 grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                           <label className="block text-sm font-medium text-slate-700 mb-1">分类名称</label>
+                           <input className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={editingCategory.name} onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} placeholder="例如：薪酬绩效" />
+                        </div>
+                     </div>
+
+                     {/* Resource Items Management */}
+                     <div className="mb-6 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex justify-between items-center mb-3">
+                           <h5 className="font-bold text-sm text-slate-700">资源文件列表</h5>
+                           <button onClick={() => setShowItemForm(true)} className="text-xs bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-1">
+                              <Plus size={12} /> 添加文件
+                           </button>
+                        </div>
+
+                        {showItemForm && (
+                           <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm animate-in fade-in">
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                 <div className="col-span-2">
+                                    <label className="block text-xs text-slate-500 mb-1">文件标题</label>
+                                    <input className="w-full border p-2 rounded text-sm" value={newItem.title} onChange={e => setNewItem({...newItem, title: e.target.value})} placeholder="文件名" />
+                                 </div>
+                                 <div>
+                                    <label className="block text-xs text-slate-500 mb-1">文件类型</label>
+                                    <select className="w-full border p-2 rounded text-sm" value={newItem.type} onChange={e => setNewItem({...newItem, type: e.target.value as any})}>
+                                       <option value="doc">Word (doc/docx)</option>
+                                       <option value="pdf">PDF</option>
+                                       <option value="xlsx">Excel (xlsx)</option>
+                                       <option value="ppt">PPT</option>
+                                    </select>
+                                 </div>
+                                 <div>
+                                    <label className="block text-xs text-slate-500 mb-1">文件大小 (自动生成)</label>
+                                    <input className="w-full border p-2 rounded text-sm bg-slate-50" value={newItem.size} readOnly placeholder="上传后生成" />
+                                 </div>
+                                 <div className="col-span-2">
+                                    <label className="block text-xs text-slate-500 mb-1">标签 (逗号分隔)</label>
+                                    <div className="relative">
+                                       <Tags size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                                       <input 
+                                          className="w-full border p-2 pl-8 rounded text-sm" 
+                                          placeholder="例如: 模板, 必读..." 
+                                          value={newItem.tags?.join(', ') || ''}
+                                          onChange={e => setNewItem({...newItem, tags: e.target.value.split(/[,，]/).map(t=>t.trim())})}
+                                       />
+                                    </div>
+                                 </div>
+                                 <div className="col-span-2">
+                                    <label className="bg-slate-100 border border-dashed border-slate-300 text-slate-600 px-4 py-3 rounded cursor-pointer text-sm flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors">
+                                       <Upload size={16} /> 点击上传文件 (模拟)
+                                       <input type="file" className="hidden" onChange={handleResourceFileUpload} />
+                                    </label>
+                                 </div>
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                 <button onClick={() => setShowItemForm(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded">取消</button>
+                                 <button onClick={handleAddItemToCategory} disabled={!newItem.title} className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50">确认添加</button>
+                              </div>
+                           </div>
+                        )}
+
+                        <div className="space-y-2">
+                           {editingCategory.items?.length === 0 && !showItemForm && (
+                              <div className="text-center py-4 text-slate-400 text-xs italic">暂无资源文件</div>
+                           )}
+                           {editingCategory.items?.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg group hover:border-blue-200 transition-colors">
+                                 <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold uppercase ${
+                                       item.type === 'pdf' ? 'bg-red-100 text-red-600' : 
+                                       item.type === 'xlsx' ? 'bg-green-100 text-green-600' :
+                                       item.type === 'ppt' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                                    }`}>
+                                       {item.type}
+                                    </div>
+                                    <div>
+                                       <div className="text-sm font-medium text-slate-700">{item.title}</div>
+                                       <div className="flex items-center gap-2 text-xs text-slate-400">
+                                          <span>{item.size}</span>
+                                          {item.tags && item.tags.length > 0 && (
+                                             <div className="flex gap-1">
+                                                {item.tags.map(t => <span key={t} className="bg-slate-100 px-1 rounded text-[10px]">{t}</span>)}
+                                             </div>
+                                          )}
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <button onClick={() => handleRemoveItemFromCategory(idx)} className="text-slate-300 hover:text-red-500 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Trash2 size={16} />
+                                 </button>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                        <button onClick={()=>setEditingCategory(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
+                        <button onClick={handleSaveCategory} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-md">保存分类</button>
+                     </div>
                  </div>
              ) : (
-                 <div className="grid grid-cols-2 gap-4">{categories.map(c => <div key={c.id} className="bg-white p-4 border rounded-lg shadow-sm flex justify-between"><span>{c.name}</span><div className="flex gap-2"><button onClick={() => handleEditCategory(c)} className="text-blue-600"><Edit size={14}/></button></div></div>)}</div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categories.map(c => (
+                       <div key={c.id} className="bg-white p-5 border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow relative group">
+                           <div className="flex justify-between items-start mb-3">
+                              <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                 <span className={`w-3 h-3 rounded-full bg-${c.color}-500`}></span>
+                                 {c.name}
+                              </h4>
+                              <button onClick={() => handleEditCategory(c)} className="text-slate-400 hover:text-blue-600 p-1 rounded-full hover:bg-slate-100 transition-colors">
+                                 <Edit size={16}/>
+                              </button>
+                           </div>
+                           <div className="text-sm text-slate-500 mb-4">
+                              包含 {c.items.length} 个资源文件
+                           </div>
+                           <div className="flex gap-1 flex-wrap">
+                              {c.items.slice(0,3).map((item, i) => (
+                                 <span key={i} className="text-[10px] bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate max-w-[80px]">{item.type}</span>
+                              ))}
+                              {c.items.length > 3 && <span className="text-[10px] text-slate-400">+</span>}
+                           </div>
+                           {/* Delete Button - Top Right */}
+                           <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCategory(c.id); }}
+                              className="absolute top-4 right-12 text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                           >
+                              <Trash2 size={16} />
+                           </button>
+                       </div>
+                    ))}
+                 </div>
              )}
           </div>
       )}
