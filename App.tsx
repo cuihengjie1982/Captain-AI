@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppRoute } from './types';
@@ -11,6 +12,7 @@ import SolutionDetail from './pages/SolutionDetail';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import MyVideos from './pages/MyVideos';
+import MyArticles from './pages/MyArticles';
 import MyNotes from './pages/MyNotes';
 import Settings from './pages/Settings';
 import Plans from './pages/Plans';
@@ -30,6 +32,7 @@ const App: React.FC = () => {
           
           {/* User Center Routes */}
           <Route path={AppRoute.MY_VIDEOS} element={<MyVideos />} />
+          <Route path={AppRoute.MY_ARTICLES} element={<MyArticles />} />
           <Route path={AppRoute.MY_NOTES} element={<MyNotes />} />
           <Route path={AppRoute.SETTINGS} element={<Settings />} />
           <Route path={AppRoute.PLANS} element={<Plans />} />

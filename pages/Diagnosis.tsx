@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AppRoute, KnowledgeCategory, UserUpload } from '../types';
+import { AppRoute, KnowledgeCategory, UserUpload, User } from '../types';
 import { 
   ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
@@ -9,7 +10,8 @@ import {
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
-import { getDiagnosisIssues as getIssuesContent } from '../services/contentService'; // Direct import to ensure correct file
+import { getDiagnosisIssues as getIssuesContent } from '../services/contentService';
+import { hasPermission } from '../services/permissionService';
 
 interface Message {
   id: string;
@@ -75,6 +77,7 @@ const ResourceItem: React.FC<{ title: string; type: 'xlsx' | 'pdf' | 'ppt' | 'do
 const Diagnosis: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Tabs state
   const [activeTab, setActiveTab] = useState<'ai' | 'expert'>('ai');
@@ -97,6 +100,8 @@ const Diagnosis: React.FC = () => {
 
   useEffect(() => {
      setKnowledgeCategories(getKnowledgeCategories());
+     const storedUser = localStorage.getItem('captainUser');
+     if (storedUser) setCurrentUser(JSON.parse(storedUser));
   }, []);
 
   const scrollToBottom = () => {
@@ -242,12 +247,17 @@ const Diagnosis: React.FC = () => {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!hasPermission(currentUser, 'expert_diagnosis')) {
+        setShowPaymentGate(true);
+        return;
+    }
+
     const file = e.target.files?.[0];
     if (file) {
       setUploadedFileName(file.name);
       setUploadStatus('uploading');
       
-      const currentUser = JSON.parse(localStorage.getItem('captainUser') || '{}');
+      const currentUserData = JSON.parse(localStorage.getItem('captainUser') || '{}');
 
       setTimeout(() => {
         setUploadStatus('success');
@@ -259,14 +269,23 @@ const Diagnosis: React.FC = () => {
           size: (file.size / 1024).toFixed(1) + ' KB',
           uploadDate: new Date().toLocaleString('zh-CN'),
           status: 'pending',
-          userName: currentUser.name || 'Guest User',
-          userEmail: currentUser.email
+          userName: currentUserData.name || 'Guest User',
+          userEmail: currentUserData.email
         };
         saveUserUpload(newUpload);
 
       }, 2000);
     }
   };
+
+  const handleDownloadTemplate = () => {
+    if (!hasPermission(currentUser, 'download_resources')) {
+        setShowPaymentGate(true);
+        return;
+    }
+    // Simulating download
+    alert("已开始下载模版包...");
+  }
 
   return (
     <div className="h-full flex flex-col bg-white relative">
@@ -304,13 +323,14 @@ const Diagnosis: React.FC = () => {
            </button>
            <button 
               onClick={() => setActiveTab('expert')}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${
                 activeTab === 'expert' 
                   ? 'border-blue-600 text-blue-600' 
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
               }`}
            >
               专家人工诊断
+              {!hasPermission(currentUser, 'expert_diagnosis') && <Lock size={12} className="mb-0.5" />}
            </button>
         </div>
       </header>
@@ -404,7 +424,14 @@ const Diagnosis: React.FC = () => {
               </div>
 
               {/* Step 1: Download */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden">
+                {/* Permission Gate Overlay (Visual only if restricted, real block is in handler) */}
+                {!hasPermission(currentUser, 'download_resources') && (
+                   <div className="absolute top-2 right-2">
+                      <Lock className="text-slate-300" size={16} />
+                   </div>
+                )}
+
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
                   <BookOpen size={28} />
                 </div>
@@ -413,10 +440,11 @@ const Diagnosis: React.FC = () => {
                    <p className="text-slate-500 text-sm mt-1">进入知识库下载各类诊断工具，包括 Excel 模型、PPT 汇报模版及调查问卷。</p>
                 </div>
                 <button 
-                  onClick={() => setShowPaymentGate(true)}
+                  onClick={handleDownloadTemplate}
                   className="px-5 py-2.5 bg-slate-800 text-white rounded-lg font-medium hover:bg-slate-900 transition-all flex items-center gap-2 shadow-lg shadow-slate-200"
                 >
-                  <Download size={18} /> 下载诊断工具模版库
+                  {hasPermission(currentUser, 'download_resources') ? <Download size={18} /> : <Lock size={16} />}
+                  下载诊断工具模版库
                 </button>
               </div>
 
@@ -430,12 +458,20 @@ const Diagnosis: React.FC = () => {
                    <p className="text-slate-500 text-sm mt-1">请上传完善后的诊断文件。文件将直接发送至专家组邮箱（支持 xlsx, ppt, pdf）。</p>
                    
                    {uploadStatus === 'idle' && (
-                     <div className="mt-4 border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+                     <div className="mt-4 border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative group">
+                        {!hasPermission(currentUser, 'expert_diagnosis') && (
+                            <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-lg">
+                                <div className="flex items-center gap-2 text-slate-500 font-bold bg-white px-4 py-2 rounded-full shadow-sm">
+                                    <Lock size={16} /> 需要专业版权限
+                                </div>
+                            </div>
+                        )}
                        <input 
                           type="file" 
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                           onChange={handleFileUpload}
                           accept=".xlsx,.xls,.pdf,.doc,.docx,.ppt,.pptx"
+                          disabled={!hasPermission(currentUser, 'expert_diagnosis')}
                        />
                        <div className="text-slate-400 flex flex-col items-center gap-2">
                           <Upload size={24} />
@@ -484,7 +520,7 @@ const Diagnosis: React.FC = () => {
           </div>
         )}
 
-        {/* --- MODAL: Payment Gate (Download Templates) --- */}
+        {/* --- MODAL: Payment Gate (Download Templates / Expert Access) --- */}
         {showPaymentGate && (
            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
@@ -524,7 +560,7 @@ const Diagnosis: React.FC = () => {
                                  <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
                                     <CheckCircle size={14} className="text-green-400" />
                                  </div>
-                                 <span className="text-slate-300">COPC 标准质检评分表</span>
+                                 <span className="text-slate-300">专家人工诊断服务通道</span>
                               </li>
                               <li className="flex items-start gap-3 text-sm">
                                  <div className="p-1 bg-green-500/20 rounded-full mt-0.5">

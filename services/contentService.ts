@@ -1,10 +1,11 @@
 
 
-import { BlogPost, IntroVideo, DiagnosisIssue } from '../types';
+import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
 const INTRO_VIDEO_KEY = 'captain_intro_video';
 const DIAGNOSIS_ISSUES_KEY = 'captain_diagnosis_issues';
+const COMMENTS_KEY = 'captain_blog_comments';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -142,6 +143,42 @@ const DEFAULT_DIAGNOSIS_ISSUES: DiagnosisIssue[] = [
   }
 ];
 
+// Mock Comments Data
+const DEFAULT_COMMENTS: BlogPostComment[] = [
+  {
+    id: 'c1',
+    postId: '1',
+    userName: '李明 - 运营总监',
+    userAvatar: 'https://i.pravatar.cc/150?u=1',
+    content: '非常有共鸣！我们团队最近走了两个Team Leader，确实是因为没有上升空间了。文中提到的“专家岗”是个很好的思路，准备尝试一下。',
+    date: '昨天',
+    likes: 24,
+    isLiked: false,
+    isTop: true,
+    replies: [
+      {
+        id: 'r1',
+        userName: 'Captain AI',
+        content: '感谢李总认可！专家岗（SME）不仅能留住人，还能有效沉淀组织经验。',
+        date: '昨天',
+        likes: 5,
+        isLiked: false
+      }
+    ]
+  },
+  {
+    id: 'c2',
+    postId: '1',
+    userName: 'Sarah Zhang',
+    userAvatar: 'https://i.pravatar.cc/150?u=2',
+    content: '请问关于薪资激励，如果是外包团队（预算受限），有什么好的非物质激励建议吗？',
+    date: '2小时前',
+    likes: 8,
+    isLiked: false,
+    replies: []
+  }
+];
+
 // Helper to get posts from storage or default
 const loadPosts = (): BlogPost[] => {
   try {
@@ -228,4 +265,80 @@ export const deleteDiagnosisIssue = (id: string): void => {
   const issues = getDiagnosisIssues();
   const newIssues = issues.filter(i => i.id !== id);
   localStorage.setItem(DIAGNOSIS_ISSUES_KEY, JSON.stringify(newIssues));
+};
+
+// --- Comment Management Methods ---
+
+const loadComments = (): BlogPostComment[] => {
+  try {
+    const stored = localStorage.getItem(COMMENTS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  localStorage.setItem(COMMENTS_KEY, JSON.stringify(DEFAULT_COMMENTS));
+  return DEFAULT_COMMENTS;
+};
+
+export const getComments = (postId: string): BlogPostComment[] => {
+  const all = loadComments();
+  return all.filter(c => c.postId === postId).sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0));
+};
+
+export const addComment = (postId: string, content: string, user: Partial<User>): BlogPostComment => {
+  const comments = loadComments();
+  const newComment: BlogPostComment = {
+    id: Date.now().toString(),
+    postId,
+    userName: user.name || '访客',
+    userAvatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
+    content,
+    date: '刚刚',
+    likes: 0,
+    isLiked: false,
+    replies: []
+  };
+  
+  // Insert at top (but below pinned if any logic existed, here just unshift)
+  comments.unshift(newComment);
+  localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+  return newComment;
+};
+
+export const addReply = (postId: string, commentId: string, content: string, user: Partial<User>): void => {
+  const comments = loadComments();
+  const commentIdx = comments.findIndex(c => c.id === commentId);
+  
+  if (commentIdx >= 0) {
+    const newReply: CommentReply = {
+      id: Date.now().toString(),
+      userName: user.name || '访客',
+      userAvatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
+      content,
+      date: '刚刚',
+      likes: 0,
+      isLiked: false
+    };
+    comments[commentIdx].replies.push(newReply);
+    localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+  }
+};
+
+export const toggleCommentLike = (commentId: string, replyId?: string): void => {
+  const comments = loadComments();
+  const commentIdx = comments.findIndex(c => c.id === commentId);
+  
+  if (commentIdx >= 0) {
+    if (replyId) {
+      const replyIdx = comments[commentIdx].replies.findIndex(r => r.id === replyId);
+      if (replyIdx >= 0) {
+         const reply = comments[commentIdx].replies[replyIdx];
+         reply.isLiked = !reply.isLiked;
+         reply.likes = reply.isLiked ? reply.likes + 1 : reply.likes - 1;
+      }
+    } else {
+      const comment = comments[commentIdx];
+      comment.isLiked = !comment.isLiked;
+      comment.likes = comment.isLiked ? comment.likes + 1 : comment.likes - 1;
+    }
+    localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+  }
 };

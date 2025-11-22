@@ -1,16 +1,18 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCcw, CheckSquare, Download, 
   MessageCircle, Send, Bookmark, Loader2, FileText, 
   ListVideo, Clock, ChevronRight, Search, Sparkles,
   Highlighter, PenTool, Maximize, Minimize, Settings,
-  ChevronLeft, ArrowLeft, X, Crown, ArrowRight
+  ChevronLeft, ArrowLeft, X, Crown, ArrowRight, Quote
 } from 'lucide-react';
-import { Note, ChatMessage, Lesson, Highlight, AdminNote } from '../types';
+import { Note, ChatMessage, Lesson, Highlight, AdminNote, User } from '../types';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
 import { getLessons } from '../services/courseService';
 import { saveAdminNote, saveWatchedLesson } from '../services/userDataService';
+import { hasPermission } from '../services/permissionService';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppRoute } from '../types';
 
@@ -24,6 +26,7 @@ const SolutionDetail: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<'transcript' | 'chat' | 'notes'>('transcript');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Playback Controls State
   const [playbackRate, setPlaybackRate] = useState(1.0);
@@ -50,6 +53,7 @@ const SolutionDetail: React.FC = () => {
   // Notes State
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteInput, setNoteInput] = useState('');
+  const [currentQuote, setCurrentQuote] = useState<string | null>(null);
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -69,6 +73,8 @@ const SolutionDetail: React.FC = () => {
     } else if (data.length > 0) {
       setCurrentLessonId(data[0].id);
     }
+    const storedUser = localStorage.getItem('captainUser');
+    if (storedUser) setCurrentUser(JSON.parse(storedUser));
   }, [id]);
 
   // Derived State
@@ -91,10 +97,17 @@ const SolutionDetail: React.FC = () => {
     }
   }, [currentLessonId]);
 
-  // Video Time Update Mock (Adjusted for playbackRate)
+  // Update playback rate on video element
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
+  // Video Time Update Mock (Adjusted for playbackRate) - Only runs if no real video
   useEffect(() => {
     let interval: any;
-    if (isPlaying && currentLesson) {
+    if (isPlaying && currentLesson && !currentLesson.videoUrl) {
       const tickRate = 1000 / playbackRate; // Adjust interval based on speed
       interval = setInterval(() => {
         setCurrentTime(prev => {
@@ -134,13 +147,29 @@ const SolutionDetail: React.FC = () => {
   if (!currentLesson) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
   // Handlers
-  const handlePlayPause = () => setIsPlaying(!isPlaying);
+  const handlePlayPause = () => {
+    if (currentLesson.videoUrl && videoRef.current) {
+        if (videoRef.current.paused) {
+            videoRef.current.play();
+            setIsPlaying(true);
+        } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+        }
+    } else {
+        // Simulation mode
+        setIsPlaying(!isPlaying);
+    }
+  };
   
   const handleJumpToTime = (time: number) => {
     setCurrentTime(time);
-    setIsPlaying(true);
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
+    if (currentLesson.videoUrl && videoRef.current) {
+        videoRef.current.currentTime = time;
+        videoRef.current.play();
+        setIsPlaying(true);
+    } else {
+        setIsPlaying(true);
     }
   };
 
@@ -167,7 +196,7 @@ const SolutionDetail: React.FC = () => {
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+    const s = Math.floor(seconds % 60);
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
@@ -179,23 +208,26 @@ const SolutionDetail: React.FC = () => {
     const newNote: Note = {
       id: Date.now().toString(),
       timestamp: currentTime,
-      content: content
+      content: content,
+      quote: currentQuote || undefined
     };
     setNotes([newNote, ...notes]);
 
     // 2. Save to Admin Service
-    const currentUser = JSON.parse(localStorage.getItem('captainUser') || '{}');
+    const currentUserData = JSON.parse(localStorage.getItem('captainUser') || '{}');
     const adminNote: AdminNote = {
       id: Date.now().toString(),
       content: content,
+      quote: currentQuote || undefined,
       lessonTitle: currentLesson.title,
       timestampDisplay: formatTime(currentTime),
       createdAt: new Date().toLocaleString('zh-CN'),
-      userName: currentUser.name || 'Guest User'
+      userName: currentUserData.name || 'Guest User'
     };
     saveAdminNote(adminNote);
 
     if (!text) setNoteInput(''); // Only clear input if manually typed
+    setCurrentQuote(null);
   };
 
   const handleGenerateHighlights = async () => {
@@ -331,9 +363,19 @@ const SolutionDetail: React.FC = () => {
   const handleMenuNote = () => {
     if (!selectionMenu) return;
     setActiveTab('notes');
-    setNoteInput(`“${selectionMenu.text}”\n`);
+    setCurrentQuote(selectionMenu.text);
     setSelectionMenu(null);
     window.getSelection()?.removeAllRanges();
+  };
+
+  // --- Export Transcript Handler ---
+  const handleExportTranscript = () => {
+    if (!hasPermission(currentUser, 'export_transcript')) {
+      setShowUpgradeModal(true);
+    } else {
+      // Logic to download transcript would go here
+      alert("开始下载字幕文稿...");
+    }
   };
 
   return (
@@ -387,11 +429,25 @@ const SolutionDetail: React.FC = () => {
           ref={playerContainerRef}
           className={`bg-black w-full relative group shadow-lg z-30 flex items-center justify-center ${isFullScreen ? 'fixed inset-0 z-50 h-screen' : 'aspect-video'}`}
         >
-           <img 
-              src={currentLesson.thumbnail} 
-              alt={currentLesson.title}
-              className={`w-full h-full opacity-90 bg-black ${isFullScreen ? 'object-contain' : 'object-contain'}`}
-            />
+           {currentLesson.videoUrl ? (
+             <video
+               ref={videoRef}
+               src={currentLesson.videoUrl}
+               className={`w-full h-full ${isFullScreen ? 'object-contain' : 'object-contain'}`}
+               poster={currentLesson.thumbnail}
+               onClick={handlePlayPause}
+               onTimeUpdate={() => {
+                 if(videoRef.current) setCurrentTime(videoRef.current.currentTime);
+               }}
+               onEnded={() => setIsPlaying(false)}
+             />
+           ) : (
+             <img 
+                src={currentLesson.thumbnail} 
+                alt={currentLesson.title}
+                className={`w-full h-full opacity-90 bg-black ${isFullScreen ? 'object-contain' : 'object-contain'}`}
+              />
+           )}
             
             {/* Custom Controls Overlay */}
             <div className="absolute inset-0 flex flex-col justify-between transition-opacity duration-300">
@@ -407,10 +463,10 @@ const SolutionDetail: React.FC = () => {
               </div>
 
               {/* Bottom Bar */}
-              <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pt-12">
+              <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 pt-12 pointer-events-none">
                 
                 {/* Progress Bar Row */}
-                <div className="mb-3 flex items-center gap-0">
+                <div className="mb-3 flex items-center gap-0 pointer-events-auto">
                   <div 
                     className="w-full h-1.5 bg-white/30 rounded-full cursor-pointer relative group/progress hover:h-2 transition-all"
                     onClick={(e) => {
@@ -430,7 +486,7 @@ const SolutionDetail: React.FC = () => {
                 </div>
 
                 {/* Controls Row */}
-                <div className="flex items-center justify-between text-white">
+                <div className="flex items-center justify-between text-white pointer-events-auto">
                   
                   {/* Left Controls */}
                   <div className="flex items-center gap-4">
@@ -606,12 +662,14 @@ const SolutionDetail: React.FC = () => {
                       <span className="text-xs font-bold text-slate-500">AI 生成内容</span>
                   </div>
                   <button
-                    onClick={() => setShowUpgradeModal(true)}
+                    onClick={handleExportTranscript}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-md transition-colors border border-slate-200 group"
                   >
                     <Download size={14} className="text-slate-400 group-hover:text-slate-600" />
                     <span>导出</span>
-                    <span className="bg-blue-600 text-white text-[10px] px-1 py-0.5 rounded font-bold ml-1">专业版</span>
+                    {!hasPermission(currentUser, 'export_transcript') && (
+                        <span className="bg-blue-600 text-white text-[10px] px-1 py-0.5 rounded font-bold ml-1">专业版</span>
+                    )}
                   </button>
                </div>
 
@@ -693,11 +751,28 @@ const SolutionDetail: React.FC = () => {
           {activeTab === 'notes' && (
             <div className="absolute inset-0 flex flex-col">
               <div className="p-4 border-b border-slate-200 bg-white">
+                {/* Active Quote Preview */}
+                {currentQuote && (
+                    <div className="mb-3 p-3 bg-slate-50 border-l-4 border-blue-500 rounded-r-lg relative group animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <Quote size={12} className="text-blue-500 fill-current" />
+                            <span className="text-[10px] font-bold text-blue-600 uppercase">字幕摘录</span>
+                        </div>
+                        <p className="text-xs text-slate-600 italic line-clamp-3">“{currentQuote}”</p>
+                        <button 
+                            onClick={() => setCurrentQuote(null)}
+                            className="absolute top-1 right-1 p-1.5 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+                            title="移除引用"
+                        >
+                            <X size={12} />
+                        </button>
+                    </div>
+                )}
                 <div className="relative">
                   <textarea
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
-                    placeholder="记录此刻的想法..."
+                    placeholder={currentQuote ? "针对这段字幕，您的想法是..." : "记录阅读心得..."}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none h-20"
                   />
                   <button
@@ -728,6 +803,12 @@ const SolutionDetail: React.FC = () => {
                         <CheckSquare size={14} />
                       </button>
                     </div>
+                    
+                    {note.quote && (
+                        <div className="mb-2 pl-2 border-l-2 border-slate-200">
+                             <p className="text-xs text-slate-400 italic line-clamp-2">“{note.quote}”</p>
+                        </div>
+                    )}
                     <p className="text-sm text-slate-700 leading-relaxed">{note.content}</p>
                   </div>
                 ))}

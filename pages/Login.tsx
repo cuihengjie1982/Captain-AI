@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppRoute } from '../types';
@@ -15,13 +16,14 @@ const Login: React.FC = () => {
       // Simple Admin check logic
       const role = email.includes('admin@captain.ai') ? 'admin' : 'user';
 
-      // Store user info
+      // Store user info with default plan 'free'
       try {
         localStorage.setItem('captainUser', JSON.stringify({ 
           name, 
           phone, 
           email, 
           role,
+          plan: role === 'admin' ? 'pro' : 'free', // Default plan
           isAuthenticated: true 
         }));
       } catch (err) {

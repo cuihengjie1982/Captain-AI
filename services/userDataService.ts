@@ -1,9 +1,12 @@
 
-import { UserUpload, AdminNote, WatchedLesson } from '../types';
+
+import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User } from '../types';
 
 const UPLOADS_KEY = 'captain_user_uploads';
 const NOTES_KEY = 'captain_admin_notes';
 const HISTORY_KEY = 'captain_user_history';
+const ARTICLE_HISTORY_KEY = 'captain_read_articles';
+const USERS_DB_KEY = 'captain_users_db';
 
 // Mock Data for Uploads
 const MOCK_UPLOADS: UserUpload[] = [
@@ -27,6 +30,14 @@ const MOCK_UPLOADS: UserUpload[] = [
     userName: '李主管',
     userEmail: 'li@example.com'
   }
+];
+
+// Mock Data for Users
+const MOCK_USERS: User[] = [
+    { id: 'u1', name: '张经理', email: 'zhang@example.com', role: 'user', plan: 'pro', phone: '13800138000', isAuthenticated: true },
+    { id: 'u2', name: '李主管', email: 'li@example.com', role: 'user', plan: 'free', phone: '13900139000', isAuthenticated: true },
+    { id: 'admin', name: 'Captain Admin', email: 'admin@captain.ai', role: 'admin', plan: 'pro', phone: '18888888888', isAuthenticated: true },
+    { id: 'u3', name: '王专员', email: 'wang@example.com', role: 'user', plan: 'free', phone: '15000150000', isAuthenticated: true }
 ];
 
 // --- User Uploads Logic ---
@@ -85,7 +96,7 @@ export const deleteAdminNote = (id: string): void => {
   localStorage.setItem(NOTES_KEY, JSON.stringify(newItems));
 };
 
-// --- User History Logic (New) ---
+// --- User Video History Logic ---
 
 export const getWatchedHistory = (): WatchedLesson[] => {
   try {
@@ -118,4 +129,59 @@ export const saveWatchedLesson = (lessonId: string): void => {
     history.unshift(newItem);
   }
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+};
+
+// --- User Article History Logic ---
+
+export const getReadHistory = (): ReadArticle[] => {
+  try {
+    const stored = localStorage.getItem(ARTICLE_HISTORY_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  return [];
+};
+
+export const saveReadArticle = (articleId: string): void => {
+  const history = getReadHistory();
+  const existingIdx = history.findIndex(h => h.articleId === articleId);
+  
+  const newItem: ReadArticle = {
+    articleId,
+    readAt: new Date().toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric' }),
+  };
+
+  if (existingIdx >= 0) {
+    history[existingIdx] = newItem; // Update timestamp
+  } else {
+    history.unshift(newItem);
+  }
+  localStorage.setItem(ARTICLE_HISTORY_KEY, JSON.stringify(history));
+};
+
+// --- User Account Management Logic ---
+
+export const getAllUsers = (): User[] => {
+    try {
+        const stored = localStorage.getItem(USERS_DB_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch (e) { console.error(e); }
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(MOCK_USERS));
+    return MOCK_USERS;
+};
+
+export const saveUser = (user: User): void => {
+    const users = getAllUsers();
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+        users[idx] = user;
+    } else {
+        users.push(user);
+    }
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+};
+
+export const deleteUser = (id: string): void => {
+    const users = getAllUsers();
+    const newUsers = users.filter(u => u.id !== id);
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(newUsers));
 };

@@ -1,21 +1,25 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { DashboardProject } from '../types';
+import { DashboardProject, User } from '../types';
 import { getDashboardProjects } from '../services/dashboardService';
+import { hasPermission } from '../services/permissionService';
 import { 
   TrendingUp, TrendingDown, Users, Activity, 
   ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile, Download,
-  X, CheckCircle, Loader2, File, AlertCircle, FileCheck, Calendar, AlertTriangle
+  X, CheckCircle, Loader2, File, AlertCircle, FileCheck, Calendar, AlertTriangle, Lock
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AppRoute } from '../types';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [currentData, setCurrentData] = useState<DashboardProject | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Custom Dropdown State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -39,6 +43,9 @@ const Dashboard: React.FC = () => {
       setSelectedProjectId(data[0].id);
       setCurrentData(data[0]);
     }
+    
+    const storedUser = localStorage.getItem('captainUser');
+    if (storedUser) setCurrentUser(JSON.parse(storedUser));
   }, []);
 
   useEffect(() => {
@@ -68,6 +75,11 @@ const Dashboard: React.FC = () => {
 
   // ... existing handlers ...
   const handleDownload = (filename: string | undefined, typeLabel: string) => {
+    if (!hasPermission(currentUser, 'download_resources')) {
+      alert('这是专业版功能。请在个人中心升级您的计划以解锁文件下载。');
+      return;
+    }
+
     if (!filename) {
       alert(`当前项目暂无"${typeLabel}"可供下载或查看。`);
       return;
@@ -235,20 +247,20 @@ const Dashboard: React.FC = () => {
                   dangerouslySetInnerHTML={{ __html: currentData.content }}
                 />
                 
-                {/* Action Buttons */}
+                {/* Action Buttons with Permission Check */}
                 <div className="mt-8 flex flex-wrap gap-3">
                    <button 
                      onClick={() => handleDownload(currentData.actionPlanFile, '详细行动计划')}
                      className="px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20 active:transform active:scale-95"
                    >
-                      <Download size={16} />
+                      {hasPermission(currentUser, 'download_resources') ? <Download size={16} /> : <Lock size={16} />}
                       下载详细行动计划 (PDF)
                    </button>
                    <button 
                      onClick={() => handleDownload(currentData.meetingRecordFile, '历史会议记录')}
                      className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 active:transform active:scale-95"
                    >
-                      <FileCheck size={16} />
+                      {hasPermission(currentUser, 'download_resources') ? <FileCheck size={16} /> : <Lock size={16} />}
                       查看历史会议记录
                    </button>
                 </div>
