@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
   Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
   LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File, Download,
-  MonitorPlay
+  MonitorPlay, MessageSquare, BrainCircuit
 } from 'lucide-react';
-import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo } from '../types';
-import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo } from '../services/contentService';
+import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue } from '../types';
+import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo, getDiagnosisIssues, saveDiagnosisIssue, deleteDiagnosisIssue } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
@@ -19,16 +20,21 @@ const Admin: React.FC = () => {
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
+  const [diagnosisIssues, setDiagnosisIssues] = useState<DiagnosisIssue[]>([]);
   
   // User Data State
   const [userUploads, setUserUploads] = useState<UserUpload[]>([]);
   const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]);
   const [userDataTab, setUserDataTab] = useState<'uploads' | 'notes'>('uploads');
   
+  // Blog Tab State
+  const [blogTab, setBlogTab] = useState<'posts' | 'insights'>('posts');
+
   const [editingBlog, setEditingBlog] = useState<Partial<BlogPost> | null>(null);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson> | null>(null);
   const [editingCategory, setEditingCategory] = useState<Partial<KnowledgeCategory> | null>(null);
   const [editingProject, setEditingProject] = useState<Partial<DashboardProject> | null>(null);
+  const [editingIssue, setEditingIssue] = useState<Partial<DiagnosisIssue> | null>(null);
 
   // Import Simulation State
   const [importStatus, setImportStatus] = useState<'idle' | 'uploading' | 'processing' | 'success'>('idle');
@@ -42,6 +48,7 @@ const Admin: React.FC = () => {
     setUserUploads(getUserUploads());
     setAdminNotes(getAdminNotes());
     setIntroVideo(getIntroVideo());
+    setDiagnosisIssues(getDiagnosisIssues());
   };
 
   useEffect(() => {
@@ -80,6 +87,35 @@ const Admin: React.FC = () => {
     setBlogs(prev => prev.filter(p => p.id !== id));
     setTimeout(refreshData, 100);
   };
+
+  // --- Diagnosis Issue Handlers ---
+  const handleEditIssue = (issue: DiagnosisIssue | null) => {
+    if (issue) {
+      setEditingIssue({ ...issue });
+    } else {
+      setEditingIssue({
+        id: Date.now().toString(),
+        title: '',
+        userText: '',
+        aiResponse: ''
+      });
+    }
+  };
+
+  const handleSaveIssue = () => {
+    if (editingIssue && editingIssue.title) {
+      saveDiagnosisIssue(editingIssue as DiagnosisIssue);
+      setEditingIssue(null);
+      refreshData();
+    }
+  };
+
+  const handleDeleteIssue = (id: string) => {
+    deleteDiagnosisIssue(id);
+    setDiagnosisIssues(prev => prev.filter(i => i.id !== id));
+    setTimeout(refreshData, 100);
+  };
+
 
   // --- Intro Video Handlers ---
   const handleSaveIntroVideo = () => {
@@ -342,6 +378,190 @@ const Admin: React.FC = () => {
         ))}
       </div>
 
+      {/* --- BLOG MANAGEMENT (Contains Articles & Diagnosis Insights) --- */}
+      {activeTab === 'blog' && (
+        <div className="space-y-6">
+          {/* Sub-tabs for Blog Section */}
+          <div className="flex gap-4 mb-2">
+             <button 
+                onClick={() => setBlogTab('posts')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  blogTab === 'posts' 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+             >
+                <BookOpen size={16} /> 文章列表
+             </button>
+             <button 
+                onClick={() => setBlogTab('insights')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  blogTab === 'insights' 
+                    ? 'bg-indigo-100 text-indigo-700' 
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+             >
+                <BrainCircuit size={16} /> 诊断洞察配置
+             </button>
+          </div>
+
+          {/* 1. Blog Posts Management */}
+          {blogTab === 'posts' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="flex justify-end">
+                <button onClick={() => handleEditBlog(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
+                  <Plus size={18} /> 新增文章
+                </button>
+              </div>
+              
+              {editingBlog ? (
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+                   <h3 className="font-bold text-lg mb-4">编辑文章</h3>
+                   <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <label className="block text-sm text-slate-500 mb-1">标题</label>
+                       <input className="w-full border p-2 rounded" value={editingBlog.title} onChange={e => setEditingBlog({...editingBlog, title: e.target.value})} />
+                     </div>
+                     <div>
+                       <label className="block text-sm text-slate-500 mb-1">作者</label>
+                       <input className="w-full border p-2 rounded" value={editingBlog.author} onChange={e => setEditingBlog({...editingBlog, author: e.target.value})} />
+                     </div>
+                     <div className="col-span-2">
+                       <label className="block text-sm text-slate-500 mb-1">摘要</label>
+                       <textarea className="w-full border p-2 rounded h-20" value={editingBlog.summary} onChange={e => setEditingBlog({...editingBlog, summary: e.target.value})} />
+                     </div>
+                     <div className="col-span-2">
+                       <label className="block text-sm text-slate-500 mb-1">缩略图 URL</label>
+                       <input className="w-full border p-2 rounded" value={editingBlog.thumbnail} onChange={e => setEditingBlog({...editingBlog, thumbnail: e.target.value})} />
+                     </div>
+                     <div className="col-span-2">
+                       <label className="block text-sm text-slate-500 mb-1">HTML 内容</label>
+                       <textarea className="w-full border p-2 rounded h-48 font-mono text-xs" value={editingBlog.content} onChange={e => setEditingBlog({...editingBlog, content: e.target.value})} />
+                     </div>
+                   </div>
+                   <div className="flex justify-end gap-3 pt-4">
+                     <button onClick={() => setEditingBlog(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
+                     <button onClick={handleSaveBlog} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">保存</button>
+                   </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-4 font-medium text-slate-600">标题</th>
+                        <th className="p-4 font-medium text-slate-600">作者</th>
+                        <th className="p-4 font-medium text-slate-600">日期</th>
+                        <th className="p-4 font-medium text-slate-600 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {blogs.map(post => (
+                        <tr key={post.id} className="hover:bg-slate-50">
+                          <td className="p-4 font-medium">{post.title}</td>
+                          <td className="p-4 text-slate-500">{post.author}</td>
+                          <td className="p-4 text-slate-500">{post.date}</td>
+                          <td className="p-4 flex justify-end gap-2">
+                            <button onClick={() => handleEditBlog(post)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteBlog(post.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 2. Diagnosis Insights Management */}
+          {blogTab === 'insights' && (
+            <div className="space-y-4 animate-in fade-in">
+               <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800">智能诊断问题配置</h3>
+                    <p className="text-xs text-slate-500 mt-1">管理“博客”页面诊断工具下拉菜单中的选项及 AI 回复策略</p>
+                  </div>
+                  <button onClick={() => handleEditIssue(null)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-sm">
+                    <Plus size={18} /> 新增问题
+                  </button>
+               </div>
+
+               {editingIssue ? (
+                 <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+                    <h3 className="font-bold text-lg mb-4">编辑诊断问题</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1">问题标题 (下拉菜单显示)</label>
+                        <input 
+                          className="w-full border p-2 rounded focus:ring-2 focus:ring-indigo-500 outline-none" 
+                          placeholder="例如：核心人才留存"
+                          value={editingIssue.title} 
+                          onChange={e => setEditingIssue({...editingIssue, title: e.target.value})} 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1">用户预设话术 (模拟用户发送的消息)</label>
+                        <textarea 
+                          className="w-full border p-2 rounded h-20 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                          placeholder="例如：我们的核心骨干流失严重..."
+                          value={editingIssue.userText} 
+                          onChange={e => setEditingIssue({...editingIssue, userText: e.target.value})} 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1">AI 初始回复 (诊断开始时的第一句话)</label>
+                        <textarea 
+                          className="w-full border p-2 rounded h-24 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                          placeholder="例如：明白。人员流失往往有多重因素..."
+                          value={editingIssue.aiResponse} 
+                          onChange={e => setEditingIssue({...editingIssue, aiResponse: e.target.value})} 
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button onClick={() => setEditingIssue(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
+                      <button onClick={handleSaveIssue} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">保存配置</button>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                   <table className="w-full text-left text-sm">
+                     <thead className="bg-slate-50 border-b border-slate-200">
+                       <tr>
+                         <th className="p-4 font-medium text-slate-600 w-1/4">问题标题</th>
+                         <th className="p-4 font-medium text-slate-600 w-1/3">用户话术预览</th>
+                         <th className="p-4 font-medium text-slate-600 w-1/3">AI 回复预览</th>
+                         <th className="p-4 font-medium text-slate-600 text-right">操作</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                       {diagnosisIssues.length === 0 ? (
+                         <tr>
+                           <td colSpan={4} className="p-8 text-center text-slate-400 italic">暂无诊断问题配置</td>
+                         </tr>
+                       ) : (
+                         diagnosisIssues.map(issue => (
+                           <tr key={issue.id} className="hover:bg-slate-50">
+                             <td className="p-4 font-bold text-slate-700">{issue.title}</td>
+                             <td className="p-4 text-slate-500"><div className="line-clamp-2 text-xs">{issue.userText}</div></td>
+                             <td className="p-4 text-slate-500"><div className="line-clamp-2 text-xs bg-slate-100 p-1 rounded">{issue.aiResponse}</div></td>
+                             <td className="p-4 flex justify-end gap-2">
+                               <button onClick={() => handleEditIssue(issue)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded"><Edit size={16} /></button>
+                               <button onClick={() => handleDeleteIssue(issue.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                             </td>
+                           </tr>
+                         ))
+                       )}
+                     </tbody>
+                   </table>
+                 </div>
+               )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* --- USER DATA MANAGEMENT --- */}
       {activeTab === 'userdata' && (
         <div className="space-y-6">
@@ -466,75 +686,6 @@ const Admin: React.FC = () => {
                )}
              </div>
            )}
-        </div>
-      )}
-
-      {/* --- BLOG MANAGEMENT --- */}
-      {activeTab === 'blog' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button onClick={() => handleEditBlog(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
-              <Plus size={18} /> 新增文章
-            </button>
-          </div>
-          
-          {editingBlog ? (
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-               <h3 className="font-bold text-lg mb-4">编辑文章</h3>
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-sm text-slate-500 mb-1">标题</label>
-                   <input className="w-full border p-2 rounded" value={editingBlog.title} onChange={e => setEditingBlog({...editingBlog, title: e.target.value})} />
-                 </div>
-                 <div>
-                   <label className="block text-sm text-slate-500 mb-1">作者</label>
-                   <input className="w-full border p-2 rounded" value={editingBlog.author} onChange={e => setEditingBlog({...editingBlog, author: e.target.value})} />
-                 </div>
-                 <div className="col-span-2">
-                   <label className="block text-sm text-slate-500 mb-1">摘要</label>
-                   <textarea className="w-full border p-2 rounded h-20" value={editingBlog.summary} onChange={e => setEditingBlog({...editingBlog, summary: e.target.value})} />
-                 </div>
-                 <div className="col-span-2">
-                   <label className="block text-sm text-slate-500 mb-1">缩略图 URL</label>
-                   <input className="w-full border p-2 rounded" value={editingBlog.thumbnail} onChange={e => setEditingBlog({...editingBlog, thumbnail: e.target.value})} />
-                 </div>
-                 <div className="col-span-2">
-                   <label className="block text-sm text-slate-500 mb-1">HTML 内容</label>
-                   <textarea className="w-full border p-2 rounded h-48 font-mono text-xs" value={editingBlog.content} onChange={e => setEditingBlog({...editingBlog, content: e.target.value})} />
-                 </div>
-               </div>
-               <div className="flex justify-end gap-3 pt-4">
-                 <button onClick={() => setEditingBlog(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
-                 <button onClick={handleSaveBlog} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">保存</button>
-               </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="p-4 font-medium text-slate-600">标题</th>
-                    <th className="p-4 font-medium text-slate-600">作者</th>
-                    <th className="p-4 font-medium text-slate-600">日期</th>
-                    <th className="p-4 font-medium text-slate-600 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {blogs.map(post => (
-                    <tr key={post.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-medium">{post.title}</td>
-                      <td className="p-4 text-slate-500">{post.author}</td>
-                      <td className="p-4 text-slate-500">{post.date}</td>
-                      <td className="p-4 flex justify-end gap-2">
-                        <button onClick={() => handleEditBlog(post)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
-                        <button onClick={() => handleDeleteBlog(post.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       )}
 

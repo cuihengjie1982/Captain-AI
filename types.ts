@@ -84,6 +84,14 @@ export interface KnowledgeCategory {
   isProjectReports?: boolean; // Added for Dashboard Project Reports
 }
 
+export interface RiskDetailItem {
+  id: string;
+  name: string;     // e.g., Employee Name / Call ID / User ID
+  desc: string;     // e.g., Risk Factor / Comment / Reason
+  metric: string;   // e.g., Risk Score / Duration / Rating
+  status: 'critical' | 'warning' | 'info';
+}
+
 export interface DashboardProject {
   id: string;
   name: string;
@@ -104,6 +112,8 @@ export interface DashboardProject {
   // Added for Project Improvement Reports
   actionPlanFile?: string; 
   meetingRecordFile?: string;
+  // Added for Risk Drill-down
+  riskDetails?: RiskDetailItem[];
 }
 
 // New Interfaces for User Data Management
@@ -132,6 +142,14 @@ export interface WatchedLesson {
   lessonId: string;
   watchedAt: string;
   progress: number; // 0-100
+}
+
+// New Interface for Diagnosis Issues Management
+export interface DiagnosisIssue {
+  id: string;
+  title: string;       // Dropdown Label
+  userText: string;    // Simulated User Message
+  aiResponse: string;  // Initial AI Response
 }
 
 export enum AppRoute {

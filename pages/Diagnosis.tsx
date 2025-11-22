@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload } from '../types';
@@ -10,6 +9,7 @@ import {
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
+import { getDiagnosisIssues as getIssuesContent } from '../services/contentService'; // Direct import to ensure correct file
 
 interface Message {
   id: string;
@@ -116,21 +116,17 @@ const Diagnosis: React.FC = () => {
     const initialIssue = location.state?.initialIssue;
 
     if (initialIssue) {
-      const issueTextMap: Record<string, string> = {
-        '核心人才留存': '我们的核心骨干流失严重，我担心留不住关键人才。',
-        '薪酬与绩效': '我觉得目前的薪资没有竞争力，绩效激励也不到位，大家是为了钱走的。',
-        '管理与辅导': '基层管理人员的辅导能力较弱，不知道怎么带人。',
-        '高绩效人员画像': '我们缺乏清晰的高绩效人才画像，招聘和选拔标准模糊。',
-        '培训效果评估': '投入了很多培训资源，但无法评估实际产出和效果。',
-        '预测与人员匹配': '话务预测不准，导致排班和人员匹配经常出现偏差。',
-        '客户体验评估': '客户体验指标（NPS/CSAT）停滞不前，找不到体验痛点在哪里。',
-        '质量评估': '质检分数很高，但客户实际感受并不好，质量评估体系可能失效了。',
-        '指标波动管理': '各项KPI经常异常波动，我们缺乏有效的监控和复盘机制。',
-        '成本效率评估': '运营成本居高不下，效率提升遇到了瓶颈。',
-        'other': initialIssue
-      };
-
-      const userText = issueTextMap[initialIssue] || initialIssue;
+      // Fetch dynamic issues to find match
+      const issues = getIssuesContent();
+      const foundIssue = issues.find(i => i.title === initialIssue);
+      
+      let userText = initialIssue;
+      if (foundIssue) {
+          userText = foundIssue.userText;
+      } else {
+          // Fallback if no direct match (e.g. custom text typed in 'other')
+          userText = initialIssue; 
+      }
 
       setMessages([{ id: '0', sender: 'user', text: userText }]);
       setIsTyping(true);
@@ -139,18 +135,17 @@ const Diagnosis: React.FC = () => {
         let response = '';
         let nextStep = 1;
         
-        if (userText.includes('薪') || userText.includes('钱')) {
-           response = "收到。薪资确实是敏感点。除了底薪，您觉得我们的绩效奖金设计是否能拉开差距，激励到核心骨干？";
-        } else if (userText.includes('流失') || userText.includes('留存')) {
-           response = "明白。人员流失往往有多重因素。当骨干觉得触碰到天花板时最容易流失。目前我们除了纵向晋升（做组长），有横向发展的机会吗（如QA、培训师）？";
-        } else if (userText.includes('管理') || userText.includes('辅导')) {
-           response = "这是一个关键的观察。一线管理者的能力直接决定团队状态。您觉得如果我们提供针对性的管理培训（如GROW模型），情况会在短期内改善吗？";
-        } else if (userText.includes('预测') || userText.includes('排班')) {
-           response = "排班问题直接影响接通率和员工满意度。您目前是使用Erlang-C模型还是其他工具来进行预测的？误差率大约是多少？";
-        } else if (userText.includes('画像') || userText.includes('招聘')) {
-           response = "精准的画像是成功的开始。我们可以从现有Top Performer的行为特征入手。您是否对现有的绩优员工做过深度访谈？";
+        if (foundIssue && foundIssue.aiResponse) {
+            response = foundIssue.aiResponse;
         } else {
-           response = "好的，我已记录这个问题。为了更准确地为您提供方案，能具体描述一下目前这个情况对业务指标（如SLA、CSAT）造成的最大影响是什么吗？";
+            // Fallback logic for custom inputs
+            if (userText.includes('薪') || userText.includes('钱')) {
+               response = "收到。薪资确实是敏感点。除了底薪，您觉得我们的绩效奖金设计是否能拉开差距，激励到核心骨干？";
+            } else if (userText.includes('流失') || userText.includes('留存')) {
+               response = "明白。人员流失往往有多重因素。当骨干觉得触碰到天花板时最容易流失。目前我们除了纵向晋升（做组长），有横向发展的机会吗（如QA、培训师）？";
+            } else {
+               response = "好的，我已记录这个问题。为了更准确地为您提供方案，能具体描述一下目前这个情况对业务指标（如SLA、CSAT）造成的最大影响是什么吗？";
+            }
         }
 
         setMessages(prev => [...prev, { id: 'init-ai', sender: 'ai', text: response }]);

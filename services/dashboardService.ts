@@ -1,4 +1,5 @@
 
+
 import { DashboardProject } from '../types';
 
 const STORAGE_KEY = 'captain_dashboard_projects_v2';
@@ -40,7 +41,13 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '6月', value: 85 },
     ],
     actionPlanFile: "Q3_核心骨干留存_行动计划_v2.pdf",
-    meetingRecordFile: "Q3_核心骨干留存_会议纪要.doc"
+    meetingRecordFile: "Q3_核心骨干留存_会议纪要.doc",
+    riskDetails: [
+      { id: 'r1', name: '王强 (工号8921)', desc: '薪资满意度低，近期频繁请假', metric: '离职风险 85%', status: 'critical' },
+      { id: 'r2', name: '李娜 (工号7732)', desc: '职业晋升受阻，连续两季度S级绩效但无空缺', metric: '离职风险 78%', status: 'critical' },
+      { id: 'r3', name: '陈思 (工号1102)', desc: '外部猎头接触频繁，工作状态波动', metric: '离职风险 72%', status: 'warning' },
+      { id: 'r4', name: '赵敏 (工号3301)', desc: '对新排班制度不满', metric: '离职风险 60%', status: 'warning' },
+    ]
   },
   {
     id: 'p2',
@@ -79,7 +86,13 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '6月', value: 4.6 },
     ],
     actionPlanFile: "NPS提升_全渠道体验_实施方案.pdf",
-    meetingRecordFile: "NPS项目_周会记录_0520.doc"
+    meetingRecordFile: "NPS项目_周会记录_0520.doc",
+    riskDetails: [
+      { id: 'n1', name: '用户 138****1234', desc: '“客服态度极其敷衍，问题没解决就挂电话”', metric: '评分 1.0', status: 'critical' },
+      { id: 'n2', name: '用户 139****5678', desc: '“退款流程太繁琐，等了3天没动静”', metric: '评分 2.0', status: 'warning' },
+      { id: 'n3', name: '用户 186****9988', desc: '“对解决方案不满意，没有体现诚意”', metric: '评分 2.0', status: 'warning' },
+      { id: 'n4', name: '用户 150****2233', desc: '“接通等待时间太长了”', metric: '评分 3.0', status: 'info' },
+    ]
   },
   {
     id: 'p3',
@@ -117,7 +130,13 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
       { month: '6月', value: 425 },
     ],
     actionPlanFile: "AHT缩减_流程优化指南.pdf",
-    meetingRecordFile: "AHT项目_复盘会议记录.doc"
+    meetingRecordFile: "AHT项目_复盘会议记录.doc",
+    riskDetails: [
+      { id: 'c1', name: 'Call-20240520-001', desc: '业务流程不熟练，多次Hold查询知识库', metric: '1200s', status: 'critical' },
+      { id: 'c2', name: 'Call-20240520-003', desc: '客户情绪激动，安抚耗时较长', metric: '980s', status: 'warning' },
+      { id: 'c3', name: 'Call-20240521-012', desc: '系统故障导致查询缓慢', metric: '850s', status: 'warning' },
+      { id: 'c4', name: 'Call-20240521-045', desc: '新人操作不熟练', metric: '780s', status: 'info' },
+    ]
   }
 ];
 

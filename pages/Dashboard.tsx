@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -8,7 +9,7 @@ import { getDashboardProjects } from '../services/dashboardService';
 import { 
   TrendingUp, TrendingDown, Users, Activity, 
   ChevronDown, Target, FileText, BarChart3, Clock, Zap, Smile, Download,
-  X, CheckCircle, Loader2, File, AlertCircle, FileCheck
+  X, CheckCircle, Loader2, File, AlertCircle, FileCheck, Calendar, AlertTriangle
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -16,11 +17,18 @@ const Dashboard: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [currentData, setCurrentData] = useState<DashboardProject | null>(null);
 
+  // Custom Dropdown State
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   // Download Modal State
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadFile, setDownloadFile] = useState<{ name: string, label: string } | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'completed'>('idle');
   const [progress, setProgress] = useState(0);
+  
+  // Risk Details Modal State
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
   
   const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -40,6 +48,17 @@ const Dashboard: React.FC = () => {
     }
   }, [selectedProjectId, projects]);
 
+  // Click Outside for Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
@@ -47,9 +66,9 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
+  // ... existing handlers ...
   const handleDownload = (filename: string | undefined, typeLabel: string) => {
     if (!filename) {
-      // Fallback alert if data is missing
       alert(`当前项目暂无"${typeLabel}"可供下载或查看。`);
       return;
     }
@@ -61,10 +80,8 @@ const Dashboard: React.FC = () => {
 
   const startDownload = () => {
     if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
-    
     setDownloadStatus('downloading');
     setProgress(0);
-    
     downloadTimerRef.current = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -72,7 +89,6 @@ const Dashboard: React.FC = () => {
           setDownloadStatus('completed');
           return 100;
         }
-        // Random increment between 5 and 20
         return Math.min(prev + Math.floor(Math.random() * 15) + 5, 100); 
       });
     }, 200);
@@ -86,7 +102,6 @@ const Dashboard: React.FC = () => {
     setDownloadFile(null);
   };
 
-  // Helper to render icons dynamically for risk cards
   const renderRiskIcon = (iconName: string) => {
     switch (iconName) {
       case 'Users': return <Users size={20} />;
@@ -98,7 +113,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Helper for file type icons in modal
   const getFileIcon = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
     if (ext === 'pdf') return <FileText size={40} className="text-red-500" />;
@@ -115,8 +129,6 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
-  // Determine trend color
-  // For AHT (Time), lower is usually better (negative trend is good)
   const isInverseMetric = currentData.kpi.label.includes('时长') || currentData.kpi.label.includes('AHT');
   const trendVal = currentData.kpi.trend;
   
@@ -132,36 +144,82 @@ const Dashboard: React.FC = () => {
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-full flex flex-col">
       
-      {/* Header with Project Selector */}
-      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative group">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">
-             <Target size={14} /> {currentData.category} 项目
-          </div>
-          <div className="relative inline-block w-full md:w-auto">
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="appearance-none bg-transparent text-3xl font-bold text-slate-900 pr-10 py-1 focus:outline-none cursor-pointer hover:text-blue-700 transition-colors w-full"
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={24} />
-          </div>
+      {/* Header with Custom Dropdown */}
+      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="relative" ref={dropdownRef}>
+           <div className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1">
+              <Target size={12} /> 
+              当前诊断项目
+           </div>
+           <button 
+             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+             className="flex items-center gap-4 group text-left focus:outline-none bg-white p-2 rounded-2xl border border-transparent hover:border-slate-200 hover:shadow-sm transition-all -ml-2"
+           >
+              <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20 shrink-0">
+                 <Activity size={28} />
+              </div>
+              <div className="min-w-[200px]">
+                 <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md">
+                      ID: {currentData.id}
+                    </span>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                       <Calendar size={10} /> {currentData.updatedAt}
+                    </span>
+                 </div>
+                 <div className="text-xl font-bold text-slate-900 flex items-center gap-2 group-hover:text-blue-700 transition-colors">
+                    {currentData.name}
+                    <ChevronDown size={18} className={`text-slate-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                 </div>
+                 <div className="text-xs text-slate-500 mt-1">
+                    分类: {currentData.category}
+                 </div>
+              </div>
+           </button>
+
+           {isDropdownOpen && (
+              <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                 <div className="bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500 border-b border-slate-100">
+                    切换诊断项目
+                 </div>
+                 <div className="max-h-[400px] overflow-y-auto">
+                    {projects.map(p => (
+                       <button
+                         key={p.id}
+                         onClick={() => {
+                            setSelectedProjectId(p.id);
+                            setIsDropdownOpen(false);
+                         }}
+                         className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-blue-50 transition-colors flex items-start gap-3 group/item ${p.id === selectedProjectId ? 'bg-blue-50/60' : ''}`}
+                       >
+                          <div className={`w-1 h-10 rounded-full transition-colors ${p.id === selectedProjectId ? 'bg-blue-600' : 'bg-slate-200 group-hover/item:bg-blue-300'}`}></div>
+                          <div className="flex-1">
+                             <div className="flex justify-between items-start mb-1">
+                                <span className={`font-bold text-sm leading-tight ${p.id === selectedProjectId ? 'text-blue-700' : 'text-slate-800'}`}>{p.name}</span>
+                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap ml-2">ID: {p.id}</span>
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-xs text-slate-500">{p.category}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{p.updatedAt}</span>
+                             </div>
+                          </div>
+                       </button>
+                    ))}
+                 </div>
+              </div>
+           )}
         </div>
         
-        <div className="flex items-center gap-3">
-           <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 animate-pulse flex items-center gap-1">
-             <Activity size={12} /> 运行中
+        <div className="flex items-center gap-3 pb-4 md:pb-0">
+           <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 animate-pulse flex items-center gap-1.5">
+             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+             实时监控运行中
            </span>
-           <div className="text-sm text-slate-400">更新于：{currentData.updatedAt}</div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-        
+         
         {/* LEFT COLUMN: Blog/Briefing Content */}
         <div className="lg:col-span-2 space-y-8">
            {/* Project Briefing Card */}
@@ -206,7 +264,6 @@ const Dashboard: React.FC = () => {
                      趋势分析
                    </h3>
                 </div>
-                {/* Placeholder for quick actions */}
                 <div className="text-xs text-slate-400 font-mono">
                    Source: Captain BI
                 </div>
@@ -293,14 +350,86 @@ const Dashboard: React.FC = () => {
               <div className="text-slate-400 text-xs mt-2 leading-relaxed">
                 需重点关注的异常指标或人员名单，点击下方按钮查看详情。
               </div>
-              <button className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium">
+              <button 
+                onClick={() => setIsRiskModalOpen(true)}
+                className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+              >
                 查看详细列表
               </button>
            </div>
-
         </div>
 
       </div>
+
+      {/* --- RISK DETAILS MODAL --- */}
+      {isRiskModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white z-10">
+                 <div className="flex items-center gap-2">
+                   <div className={`p-1.5 rounded-lg ${currentData.kpi.riskColor}`}>
+                      {renderRiskIcon(currentData.kpi.riskIconName)}
+                   </div>
+                   <h3 className="text-lg font-bold text-slate-900">{currentData.kpi.riskLabel}详情</h3>
+                 </div>
+                 <button onClick={() => setIsRiskModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1 rounded-full transition-colors"><X size={20} /></button>
+              </div>
+
+              {/* List Content */}
+              <div className="flex-1 overflow-y-auto p-0">
+                 <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50/50 border-b border-slate-100 sticky top-0 backdrop-blur-sm">
+                       <tr>
+                          <th className="p-4 text-slate-500 font-medium w-1/3">对象 / ID</th>
+                          <th className="p-4 text-slate-500 font-medium w-1/2">详细情况</th>
+                          <th className="p-4 text-slate-500 font-medium text-right">指标数值</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                       {currentData.riskDetails && currentData.riskDetails.length > 0 ? (
+                          currentData.riskDetails.map(item => (
+                             <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                                <td className="p-4">
+                                   <div className="font-bold text-slate-800">{item.name}</div>
+                                </td>
+                                <td className="p-4">
+                                   <div className="text-slate-600 leading-relaxed">{item.desc}</div>
+                                </td>
+                                <td className="p-4 text-right">
+                                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                      item.status === 'critical' ? 'bg-red-100 text-red-700 border border-red-200' : 
+                                      item.status === 'warning' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 
+                                      'bg-blue-100 text-blue-700 border border-blue-200'
+                                   }`}>
+                                     {item.status === 'critical' && <AlertCircle size={10} />}
+                                     {item.status === 'warning' && <AlertTriangle size={10} />}
+                                     {item.metric}
+                                   </span>
+                                </td>
+                             </tr>
+                          ))
+                       ) : (
+                          <tr>
+                             <td colSpan={3} className="p-10 text-center text-slate-400">
+                                <div className="flex flex-col items-center gap-2">
+                                  <CheckCircle size={32} className="text-green-500/50" />
+                                  <span>暂无风险项，运营状况良好。</span>
+                                </div>
+                             </td>
+                          </tr>
+                       )}
+                    </tbody>
+                 </table>
+              </div>
+              
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                 <button onClick={() => setIsRiskModalOpen(false)} className="px-5 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 text-sm font-bold hover:bg-slate-100 transition-colors">关闭列表</button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* --- DOWNLOAD MODAL --- */}
       {showDownloadModal && downloadFile && (
@@ -314,7 +443,6 @@ const Dashboard: React.FC = () => {
               </button>
               
               <div className="p-8 flex flex-col items-center text-center">
-                 {/* Icon Status */}
                  <div className="mb-6 relative">
                     {downloadStatus === 'completed' ? (
                        <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 animate-in zoom-in duration-300 border-4 border-green-100">
@@ -335,7 +463,6 @@ const Dashboard: React.FC = () => {
                     <File size={12} /> {downloadFile.name}
                  </p>
 
-                 {/* Action Area */}
                  <div className="w-full">
                     {downloadStatus === 'idle' && (
                        <button 
@@ -387,7 +514,6 @@ const Dashboard: React.FC = () => {
                  </div>
               </div>
               
-              {/* Footer Info */}
               <div className="bg-slate-50 px-6 py-3 text-center border-t border-slate-100">
                  <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
                     <Target size={10} /> 来源: Captain AI 指挥中心知识库

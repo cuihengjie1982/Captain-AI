@@ -1,9 +1,10 @@
 
 
-import { BlogPost, IntroVideo } from '../types';
+import { BlogPost, IntroVideo, DiagnosisIssue } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
 const INTRO_VIDEO_KEY = 'captain_intro_video';
+const DIAGNOSIS_ISSUES_KEY = 'captain_diagnosis_issues';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -78,6 +79,69 @@ const DEFAULT_INTRO_VIDEO: IntroVideo = {
   isVisible: true
 };
 
+const DEFAULT_DIAGNOSIS_ISSUES: DiagnosisIssue[] = [
+  {
+    id: '1',
+    title: '核心人才留存',
+    userText: '我们的核心骨干流失严重，我担心留不住关键人才。',
+    aiResponse: '明白。人员流失往往有多重因素。当骨干觉得触碰到天花板时最容易流失。目前我们除了纵向晋升（做组长），有横向发展的机会吗（如QA、培训师）？'
+  },
+  {
+    id: '2',
+    title: '薪酬与绩效',
+    userText: '我觉得目前的薪资没有竞争力，绩效激励也不到位，大家是为了钱走的。',
+    aiResponse: '收到。薪资确实是敏感点。除了底薪，您觉得我们的绩效奖金设计是否能拉开差距，激励到核心骨干？'
+  },
+  {
+    id: '3',
+    title: '管理与辅导',
+    userText: '基层管理人员的辅导能力较弱，不知道怎么带人。',
+    aiResponse: '这是一个关键的观察。一线管理者的能力直接决定团队状态。您觉得如果我们提供针对性的管理培训（如GROW模型），情况会在短期内改善吗？'
+  },
+  {
+    id: '4',
+    title: '高绩效人员画像',
+    userText: '我们缺乏清晰的高绩效人才画像，招聘和选拔标准模糊。',
+    aiResponse: '精准的画像是成功的开始。我们可以从现有Top Performer的行为特征入手。您是否对现有的绩优员工做过深度访谈？'
+  },
+  {
+    id: '5',
+    title: '培训效果评估',
+    userText: '投入了很多培训资源，但无法评估实际产出和效果。',
+    aiResponse: '培训评估确实是个难题。我们通常建议使用柯氏四级评估模型。您目前主要停留在“反应层”（满意度），还是已经关注“行为层”（业务改变）了？'
+  },
+  {
+    id: '6',
+    title: '预测与人员匹配',
+    userText: '话务预测不准，导致排班和人员匹配经常出现偏差。',
+    aiResponse: '排班问题直接影响接通率和员工满意度。您目前是使用Erlang-C模型还是其他工具来进行预测的？误差率大约是多少？'
+  },
+  {
+    id: '7',
+    title: '客户体验评估',
+    userText: '客户体验指标（NPS/CSAT）停滞不前，找不到体验痛点在哪里。',
+    aiResponse: '指标停滞往往是因为我们只看分数，没看动因。您最近有分析过客户的非结构化数据（如录音文本或文本反馈）吗？'
+  },
+  {
+    id: '8',
+    title: '质量评估',
+    userText: '质检分数很高，但客户实际感受并不好，质量评估体系可能失效了。',
+    aiResponse: '这是典型的“质检与体验脱节”。您的质检表是基于内部流程合规设计的，还是基于客户感受设计的？'
+  },
+  {
+    id: '9',
+    title: '指标波动管理',
+    userText: '各项KPI经常异常波动，我们缺乏有效的监控和复盘机制。',
+    aiResponse: '波动管理需要建立“异常熔断”机制。当指标偏离正常值（如+/- 10%）时，我们的第一反应流程是什么？'
+  },
+  {
+    id: '10',
+    title: '成本效率评估',
+    userText: '运营成本居高不下，效率提升遇到了瓶颈。',
+    aiResponse: '降本增效的核心在于AHT（平均处理时长）和FCR（首问解决率）。您觉得目前最大的效率杀手是系统慢，还是流程繁琐？'
+  }
+];
+
 // Helper to get posts from storage or default
 const loadPosts = (): BlogPost[] => {
   try {
@@ -88,8 +152,6 @@ const loadPosts = (): BlogPost[] => {
   } catch (e) {
     console.error("Failed to load blog posts", e);
   }
-  // Initialize storage with defaults if empty
-  // Create a deep copy to avoid reference mutation issues of DEFAULT_POSTS constant
   const defaults = JSON.parse(JSON.stringify(DEFAULT_POSTS));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
   return defaults;
@@ -138,7 +200,32 @@ export const saveIntroVideo = (video: IntroVideo): void => {
 };
 
 export const deleteIntroVideo = (): void => {
-  // Reset to default or just hide it
   const hiddenVideo = { ...getIntroVideo(), isVisible: false };
   localStorage.setItem(INTRO_VIDEO_KEY, JSON.stringify(hiddenVideo));
+};
+
+// --- Diagnosis Issues Methods ---
+
+export const getDiagnosisIssues = (): DiagnosisIssue[] => {
+  try {
+    const stored = localStorage.getItem(DIAGNOSIS_ISSUES_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  
+  localStorage.setItem(DIAGNOSIS_ISSUES_KEY, JSON.stringify(DEFAULT_DIAGNOSIS_ISSUES));
+  return DEFAULT_DIAGNOSIS_ISSUES;
+};
+
+export const saveDiagnosisIssue = (issue: DiagnosisIssue): void => {
+  const issues = getDiagnosisIssues();
+  const idx = issues.findIndex(i => i.id === issue.id);
+  if (idx >= 0) issues[idx] = issue;
+  else issues.push(issue);
+  localStorage.setItem(DIAGNOSIS_ISSUES_KEY, JSON.stringify(issues));
+};
+
+export const deleteDiagnosisIssue = (id: string): void => {
+  const issues = getDiagnosisIssues();
+  const newIssues = issues.filter(i => i.id !== id);
+  localStorage.setItem(DIAGNOSIS_ISSUES_KEY, JSON.stringify(newIssues));
 };

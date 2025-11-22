@@ -1,18 +1,21 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppRoute, BlogPost, IntroVideo } from '../types';
+import { AppRoute, BlogPost, IntroVideo, DiagnosisIssue } from '../types';
 import { ArrowRight, Clock, ChevronDown, Stethoscope, Play, Pause, Maximize, Minimize, Volume2, VolumeX, Settings } from 'lucide-react';
-import { getBlogPosts, getIntroVideo } from '../services/contentService';
+import { getBlogPosts, getIntroVideo, getDiagnosisIssues } from '../services/contentService';
 
 const Blog: React.FC = () => {
   const navigate = useNavigate();
   
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
+  const [diagnosisIssues, setDiagnosisIssues] = useState<DiagnosisIssue[]>([]);
 
   useEffect(() => {
     setPosts(getBlogPosts());
+    setDiagnosisIssues(getDiagnosisIssues());
     const video = getIntroVideo();
     if (video && video.isVisible) {
       setIntroVideo(video);
@@ -20,7 +23,17 @@ const Blog: React.FC = () => {
   }, []);
   
   // Diagnosis Widget State
-  const [selectedIssue, setSelectedIssue] = useState('核心人才留存');
+  // Default to first issue if available, else fallback string
+  const [selectedIssue, setSelectedIssue] = useState('');
+  
+  useEffect(() => {
+      if (diagnosisIssues.length > 0) {
+          setSelectedIssue(diagnosisIssues[0].title);
+      } else {
+          setSelectedIssue('核心人才留存');
+      }
+  }, [diagnosisIssues]);
+
   const [customIssue, setCustomIssue] = useState('');
 
   const handleStartDiagnosis = () => {
@@ -225,16 +238,9 @@ const Blog: React.FC = () => {
                       onChange={(e) => setSelectedIssue(e.target.value)}
                       className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                     >
-                      <option value="核心人才留存">核心人才留存</option>
-                      <option value="薪酬与绩效">薪酬与绩效</option>
-                      <option value="管理与辅导">管理与辅导</option>
-                      <option value="高绩效人员画像">高绩效人员画像</option>
-                      <option value="培训效果评估">培训效果评估</option>
-                      <option value="预测与人员匹配">预测与人员匹配</option>
-                      <option value="客户体验评估">客户体验评估</option>
-                      <option value="质量评估">质量评估</option>
-                      <option value="指标波动管理">指标波动管理</option>
-                      <option value="成本效率评估">成本效率评估</option>
+                      {diagnosisIssues.map(issue => (
+                          <option key={issue.id} value={issue.title}>{issue.title}</option>
+                      ))}
                       <option value="other">其他原因...</option>
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
