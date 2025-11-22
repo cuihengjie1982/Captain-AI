@@ -1,7 +1,9 @@
 
-import { BlogPost } from '../types';
+
+import { BlogPost, IntroVideo } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
+const INTRO_VIDEO_KEY = 'captain_intro_video';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -68,6 +70,14 @@ const DEFAULT_POSTS: BlogPost[] = [
   }
 ];
 
+const DEFAULT_INTRO_VIDEO: IntroVideo = {
+  id: 'intro-default',
+  title: 'Captain AI 平台价值演示',
+  url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', // Sample video
+  thumbnail: 'https://picsum.photos/1280/720?random=99',
+  isVisible: true
+};
+
 // Helper to get posts from storage or default
 const loadPosts = (): BlogPost[] => {
   try {
@@ -109,4 +119,26 @@ export const deleteBlogPost = (id: string): void => {
   const posts = loadPosts();
   const newPosts = posts.filter(p => p.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(newPosts));
+};
+
+// --- Intro Video Methods ---
+
+export const getIntroVideo = (): IntroVideo => {
+  try {
+    const stored = localStorage.getItem(INTRO_VIDEO_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  
+  localStorage.setItem(INTRO_VIDEO_KEY, JSON.stringify(DEFAULT_INTRO_VIDEO));
+  return DEFAULT_INTRO_VIDEO;
+};
+
+export const saveIntroVideo = (video: IntroVideo): void => {
+  localStorage.setItem(INTRO_VIDEO_KEY, JSON.stringify(video));
+};
+
+export const deleteIntroVideo = (): void => {
+  // Reset to default or just hide it
+  const hiddenVideo = { ...getIntroVideo(), isVisible: false };
+  localStorage.setItem(INTRO_VIDEO_KEY, JSON.stringify(hiddenVideo));
 };

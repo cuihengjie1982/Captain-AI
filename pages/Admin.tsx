@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
   Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
-  LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File, Download
+  LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File, Download,
+  MonitorPlay
 } from 'lucide-react';
-import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote } from '../types';
-import { getBlogPosts, saveBlogPost, deleteBlogPost } from '../services/contentService';
+import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo } from '../types';
+import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
@@ -18,6 +18,7 @@ const Admin: React.FC = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
+  const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
   
   // User Data State
   const [userUploads, setUserUploads] = useState<UserUpload[]>([]);
@@ -40,6 +41,7 @@ const Admin: React.FC = () => {
     setProjects(getDashboardProjects());
     setUserUploads(getUserUploads());
     setAdminNotes(getAdminNotes());
+    setIntroVideo(getIntroVideo());
   };
 
   useEffect(() => {
@@ -79,6 +81,31 @@ const Admin: React.FC = () => {
     setTimeout(refreshData, 100);
   };
 
+  // --- Intro Video Handlers ---
+  const handleSaveIntroVideo = () => {
+    if (introVideo) {
+      saveIntroVideo(introVideo);
+      alert('平台视频配置已保存');
+      refreshData();
+    }
+  };
+
+  const handleVideoUploadSim = (e: React.ChangeEvent<HTMLInputElement>, type: 'video' | 'cover') => {
+    const file = e.target.files?.[0];
+    if (!file || !introVideo) return;
+
+    // For demo purposes, we use object URL for immediate feedback.
+    // In a real app, this would be an upload to S3/Cloud Storage.
+    const fakeUrl = URL.createObjectURL(file);
+    
+    if (type === 'video') {
+        setIntroVideo({ ...introVideo, url: fakeUrl });
+    } else {
+        setIntroVideo({ ...introVideo, thumbnail: fakeUrl });
+    }
+  };
+
+
   // --- Course Handlers ---
   const handleEditLesson = (lesson: Lesson | null) => {
     setImportStatus('idle');
@@ -99,71 +126,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleSmartCreate = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Initialize new lesson from file
-    const newLesson: Lesson = {
-      id: Date.now().toString(),
-      title: file.name.substring(0, file.name.lastIndexOf('.')),
-      duration: '00:00',
-      durationSec: 0,
-      thumbnail: 'https://picsum.photos/800/450',
-      highlights: [],
-      transcript: []
-    };
-
-    setEditingLesson(newLesson);
-    setImportStatus('uploading');
-    setImportMessage(`正在上传: ${file.name}...`);
-    
-    // Clear input
-    e.target.value = '';
-
-    // Simulate upload and processing
-    setTimeout(() => {
-      setImportStatus('processing');
-      setImportMessage('AI 正在智能解析文件内容...');
-
-      setTimeout(() => {
-        const fileName = file.name.substring(0, file.name.lastIndexOf('.'));
-        const fileType = file.name.split('.').pop()?.toLowerCase();
-        
-        let updates: Partial<Lesson> = {};
-        let successMsg = '';
-
-        if (['mp4', 'mov', 'avi'].includes(fileType || '')) {
-            updates = {
-                duration: '15:30', 
-                durationSec: 930
-            };
-            successMsg = '视频解析成功：已自动提取时长与标题';
-        } else if (['jpg', 'png', 'jpeg', 'webp'].includes(fileType || '')) {
-            updates = {
-                thumbnail: URL.createObjectURL(file) 
-            };
-            successMsg = '封面图解析成功';
-        } else if (['doc', 'docx', 'pdf', 'ppt', 'pptx'].includes(fileType || '')) {
-            updates = {
-                transcript: [
-                   { time: 0, text: "（AI自动提取自文档）" },
-                   { time: 5, text: "大家好，这是从导入的文档中自动生成的脚本内容..." },
-                   { time: 15, text: "文档中的核心观点已自动转换为课程大纲..." }
-                ]
-            };
-            successMsg = '文档解析成功：已生成初步脚本与大纲';
-        } else {
-            successMsg = '文件已导入';
-        }
-
-        setEditingLesson(prev => prev ? ({ ...prev, ...updates }) : null);
-        setImportStatus('success');
-        setImportMessage(successMsg);
-      }, 1500);
-    }, 1000);
-  };
-
   const handleSaveLesson = () => {
     if (editingLesson && editingLesson.title) {
       saveLesson(editingLesson as Lesson);
@@ -176,62 +138,6 @@ const Admin: React.FC = () => {
     deleteLesson(id);
     setLessons(prev => prev.filter(l => l.id !== id));
     setTimeout(refreshData, 100);
-  };
-
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !editingLesson) return;
-
-    setImportStatus('uploading');
-    setImportMessage(`正在上传: ${file.name}...`);
-
-    // Simulate upload and processing
-    setTimeout(() => {
-      setImportStatus('processing');
-      setImportMessage('AI 正在智能解析文件内容...');
-
-      setTimeout(() => {
-        const fileName = file.name.substring(0, file.name.lastIndexOf('.'));
-        const fileType = file.name.split('.').pop()?.toLowerCase();
-        
-        let updates: Partial<Lesson> = {};
-        let successMsg = '';
-
-        // Logic for different file types
-        if (['mp4', 'mov', 'avi'].includes(fileType || '')) {
-            updates = {
-                title: fileName, // Use filename as title
-                duration: '15:30', // Mock detected duration
-                durationSec: 930
-            };
-            successMsg = '视频解析成功：已自动提取时长与标题';
-        } else if (['jpg', 'png', 'jpeg', 'webp'].includes(fileType || '')) {
-            // In a real app, this would be the uploaded URL
-            updates = {
-                thumbnail: URL.createObjectURL(file) // Temporary preview
-            };
-            successMsg = '封面图解析成功';
-        } else if (['doc', 'docx', 'pdf', 'ppt', 'pptx'].includes(fileType || '')) {
-            updates = {
-                title: editingLesson.title || fileName,
-                // Simulate extracted transcript/content
-                transcript: [
-                   { time: 0, text: "（AI自动提取自文档）" },
-                   { time: 5, text: "大家好，这是从导入的文档中自动生成的脚本内容..." },
-                   { time: 15, text: "文档中的核心观点已自动转换为课程大纲..." }
-                ]
-            };
-            successMsg = '文档解析成功：已生成初步脚本与大纲';
-        } else {
-            updates = { title: fileName };
-            successMsg = '文件已导入';
-        }
-
-        setEditingLesson(prev => ({ ...prev, ...updates }));
-        setImportStatus('success');
-        setImportMessage(successMsg);
-      }, 1500);
-    }, 1000);
   };
 
   // --- Knowledge Base Handlers ---
@@ -336,7 +242,6 @@ const Admin: React.FC = () => {
 
       setTimeout(() => {
         // Mock logic to update project data based on "file"
-        // In a real app, this would parse XLSX/CSV
         const randomBase = Math.floor(Math.random() * 50) + 50;
         const newChartData = [
           { month: '1月', value: randomBase },
@@ -351,7 +256,6 @@ const Admin: React.FC = () => {
           ...editingProject.kpi,
           value: randomBase + 12,
           trend: 5.5,
-          // Update risk values purely for demo effect
           riskValue: Math.floor(Math.random() * 10) + ' 项'
         };
 
@@ -636,159 +540,172 @@ const Admin: React.FC = () => {
 
       {/* --- COURSE MANAGEMENT --- */}
       {activeTab === 'course' && (
-        <div className="space-y-4">
-           <div className="flex justify-end gap-3">
-            <div className="relative">
-                <input 
-                  type="file" 
-                  id="smart-create-input"
-                  className="hidden" 
-                  accept=".doc,.docx,.pdf,.ppt,.pptx,.mp4,.mov,.jpg,.jpeg,.png"
-                  onChange={handleSmartCreate}
-                />
-                <label 
-                  htmlFor="smart-create-input"
-                  className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm"
-                >
-                  <Bot size={18} /> 智能导入创建
-                </label>
-            </div>
-            <button onClick={() => handleEditLesson(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
-              <Plus size={18} /> 手动新增
-            </button>
-          </div>
-
-          {editingLesson ? (
-             <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-               <div className="flex justify-between items-center">
-                 <h3 className="font-bold text-lg">编辑课程</h3>
+        <div className="space-y-8">
+           {/* 1. Intro Video Section (Moved from Config) */}
+           {introVideo && (
+             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+               <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <MonitorPlay size={20} className="text-blue-600" /> 首页视频 (Blog Intro)
+                  </h3>
+                  <div className="flex items-center gap-2">
+                     <span className="text-sm text-slate-500">启用展示</span>
+                     <div 
+                       onClick={() => setIntroVideo({...introVideo, isVisible: !introVideo.isVisible})}
+                       className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${introVideo.isVisible ? 'bg-blue-600' : 'bg-slate-300'}`}
+                     >
+                       <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${introVideo.isVisible ? 'left-6' : 'left-1'}`}></div>
+                     </div>
+                  </div>
                </div>
-
-               {/* Smart Import Section */}
-               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-blue-900 flex items-center gap-2">
-                      <Bot size={18} /> 智能导入助手
-                    </h4>
-                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">支持 Word / PDF / PPT / 视频 / 图片</span>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">视频标题</label>
+                        <input 
+                          className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={introVideo.title}
+                          onChange={(e) => setIntroVideo({...introVideo, title: e.target.value})}
+                        />
+                      </div>
+                       <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">视频源文件 (MP4)</label>
+                        <div className="flex gap-2">
+                            <input 
+                              className="flex-1 border border-slate-300 p-2.5 rounded-lg bg-slate-50 text-slate-600 text-sm"
+                              value={introVideo.url}
+                              readOnly
+                            />
+                            <label className="px-3 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                               <Upload size={16} /> 
+                               上传
+                               <input type="file" accept="video/mp4,video/webm" className="hidden" onChange={(e) => handleVideoUploadSim(e, 'video')} />
+                            </label>
+                        </div>
+                      </div>
                   </div>
                   
-                  {importStatus === 'idle' && (
-                    <div className="relative border-2 border-dashed border-blue-200 rounded-lg bg-white hover:bg-blue-50 transition-colors text-center py-8 cursor-pointer group">
-                      <input 
-                        type="file" 
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                        accept=".doc,.docx,.pdf,.ppt,.pptx,.mp4,.mov,.jpg,.jpeg,.png"
-                        onChange={handleImportFile}
-                      />
-                      <div className="flex flex-col items-center gap-2 text-slate-400 group-hover:text-blue-500">
-                        <div className="p-3 bg-blue-100 rounded-full">
-                          <Upload size={24} className="text-blue-600" />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">封面缩略图</label>
+                    <div className="flex gap-3 items-start">
+                        <div className="w-32 h-20 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                           <img src={introVideo.thumbnail} alt="Preview" className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-sm font-medium">点击或拖拽文件至此</span>
-                        <span className="text-xs opacity-70">AI 将自动提取标题、大纲或时长信息</span>
-                      </div>
+                        <div className="flex-1">
+                            <div className="flex gap-2">
+                                <input 
+                                  className="flex-1 border border-slate-300 p-2.5 rounded-lg bg-slate-50 text-slate-600 text-sm"
+                                  value={introVideo.thumbnail}
+                                  readOnly
+                                />
+                                <label className="px-3 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                                  <ImageIcon size={16} /> 
+                                  上传
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoUploadSim(e, 'cover')} />
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                  )}
-
-                  {importStatus === 'uploading' && (
-                    <div className="bg-white p-6 rounded-lg border border-blue-100 flex flex-col items-center justify-center py-8">
-                       <Loader2 size={32} className="text-blue-600 animate-spin mb-3" />
-                       <p className="text-sm text-slate-600">{importMessage}</p>
-                    </div>
-                  )}
-
-                  {importStatus === 'processing' && (
-                    <div className="bg-white p-6 rounded-lg border border-blue-100 flex flex-col items-center justify-center py-8">
-                       <div className="relative">
-                          <div className="absolute inset-0 bg-blue-400 rounded-full blur opacity-20 animate-pulse"></div>
-                          <Bot size={32} className="text-blue-600 relative z-10 animate-bounce" />
-                       </div>
-                       <p className="text-sm text-slate-600 mt-3">{importMessage}</p>
-                    </div>
-                  )}
-
-                  {importStatus === 'success' && (
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center justify-between">
-                       <div className="flex items-center gap-3">
-                          <CheckCircle size={20} className="text-green-600" />
-                          <div>
-                            <p className="text-sm font-bold text-green-800">导入完成</p>
-                            <p className="text-xs text-green-600">{importMessage}</p>
-                          </div>
-                       </div>
-                       <button onClick={() => setImportStatus('idle')} className="text-xs text-green-700 underline hover:text-green-900">
-                         继续导入
-                       </button>
-                    </div>
-                  )}
+                  </div>
                </div>
-
-               {/* Manual Edit Fields */}
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="col-span-2">
-                   <label className="block text-sm text-slate-500 mb-1">课程标题</label>
-                   <div className="relative">
-                     <FileText size={16} className="absolute left-3 top-3 text-slate-400" />
-                     <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.title} onChange={e => setEditingLesson({...editingLesson, title: e.target.value})} placeholder="课程标题或文件名" />
-                   </div>
-                 </div>
-                 <div>
-                   <label className="block text-sm text-slate-500 mb-1">时长显示 (如 10:00)</label>
-                   <div className="relative">
-                     <FileVideo size={16} className="absolute left-3 top-3 text-slate-400" />
-                     <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.duration} onChange={e => setEditingLesson({...editingLesson, duration: e.target.value})} />
-                   </div>
-                 </div>
-                 <div>
-                   <label className="block text-sm text-slate-500 mb-1">时长 (秒)</label>
-                   <input type="number" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.durationSec} onChange={e => setEditingLesson({...editingLesson, durationSec: parseInt(e.target.value) || 0})} />
-                 </div>
-                 <div className="col-span-2">
-                   <label className="block text-sm text-slate-500 mb-1">缩略图 URL</label>
-                   <div className="relative">
-                     <ImageIcon size={16} className="absolute left-3 top-3 text-slate-400" />
-                     <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.thumbnail} onChange={e => setEditingLesson({...editingLesson, thumbnail: e.target.value})} />
-                   </div>
-                   {editingLesson.thumbnail && (
-                     <img src={editingLesson.thumbnail} alt="Preview" className="mt-2 h-20 object-cover rounded border border-slate-200" />
-                   )}
-                 </div>
-               </div>
-               <div className="flex justify-end gap-3 pt-4">
-                 <button onClick={() => setEditingLesson(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
-                 <button onClick={handleSaveLesson} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">保存</button>
+               
+               <div className="flex justify-end mt-4">
+                  <button 
+                    onClick={handleSaveIntroVideo}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm"
+                  >
+                     <Save size={16} /> 保存首页视频配置
+                  </button>
                </div>
              </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="p-4 font-medium text-slate-600">封面</th>
-                    <th className="p-4 font-medium text-slate-600">课程标题</th>
-                    <th className="p-4 font-medium text-slate-600">时长</th>
-                    <th className="p-4 font-medium text-slate-600 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {lessons.map(lesson => (
-                    <tr key={lesson.id} className="hover:bg-slate-50">
-                      <td className="p-4">
-                        <img src={lesson.thumbnail} className="w-16 h-9 object-cover rounded" alt="" />
-                      </td>
-                      <td className="p-4 font-medium">{lesson.title}</td>
-                      <td className="p-4 text-slate-500">{lesson.duration}</td>
-                      <td className="p-4 flex justify-end gap-2">
-                        <button onClick={() => handleEditLesson(lesson)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
-                        <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+           )}
+
+           <div className="border-t border-slate-200"></div>
+
+           {/* 2. Lessons Section */}
+           <div>
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Video size={20} className="text-slate-600" /> 解决方案库课程
+                 </h3>
+                 <button onClick={() => handleEditLesson(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+                    <Plus size={18} /> 手动新增
+                 </button>
+              </div>
+
+              {editingLesson ? (
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-lg">编辑课程</h3>
+                  </div>
+
+                  {/* Manual Edit Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-sm text-slate-500 mb-1">课程标题</label>
+                      <div className="relative">
+                        <FileText size={16} className="absolute left-3 top-3 text-slate-400" />
+                        <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.title} onChange={e => setEditingLesson({...editingLesson, title: e.target.value})} placeholder="课程标题或文件名" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-500 mb-1">时长显示 (如 10:00)</label>
+                      <div className="relative">
+                        <FileVideo size={16} className="absolute left-3 top-3 text-slate-400" />
+                        <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.duration} onChange={e => setEditingLesson({...editingLesson, duration: e.target.value})} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-500 mb-1">时长 (秒)</label>
+                      <input type="number" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.durationSec} onChange={e => setEditingLesson({...editingLesson, durationSec: parseInt(e.target.value) || 0})} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm text-slate-500 mb-1">缩略图 URL</label>
+                      <div className="relative">
+                        <ImageIcon size={16} className="absolute left-3 top-3 text-slate-400" />
+                        <input className="w-full border p-2 pl-9 rounded focus:ring-2 focus:ring-blue-500 outline-none" value={editingLesson.thumbnail} onChange={e => setEditingLesson({...editingLesson, thumbnail: e.target.value})} />
+                      </div>
+                      {editingLesson.thumbnail && (
+                        <img src={editingLesson.thumbnail} alt="Preview" className="mt-2 h-20 object-cover rounded border border-slate-200" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={() => setEditingLesson(null)} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">取消</button>
+                    <button onClick={handleSaveLesson} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">保存</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-4 font-medium text-slate-600">封面</th>
+                        <th className="p-4 font-medium text-slate-600">课程标题</th>
+                        <th className="p-4 font-medium text-slate-600">时长</th>
+                        <th className="p-4 font-medium text-slate-600 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {lessons.map(lesson => (
+                        <tr key={lesson.id} className="hover:bg-slate-50">
+                          <td className="p-4">
+                            <img src={lesson.thumbnail} className="w-16 h-9 object-cover rounded" alt="" />
+                          </td>
+                          <td className="p-4 font-medium">{lesson.title}</td>
+                          <td className="p-4 text-slate-500">{lesson.duration}</td>
+                          <td className="p-4 flex justify-end gap-2">
+                            <button onClick={() => handleEditLesson(lesson)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+           </div>
         </div>
       )}
 
@@ -1087,7 +1004,7 @@ const Admin: React.FC = () => {
                     </div>
                  </div>
 
-                 {/* NEW SECTION: Project Files */}
+                 {/* Project Files */}
                  <div className="col-span-2 border-t border-slate-100 pt-4 mt-2">
                     <h4 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2"><FileText size={16} /> 项目文档配置</h4>
                     <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">

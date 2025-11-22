@@ -31,7 +31,7 @@ const Plans: React.FC = () => {
          
          {/* Basic Plan */}
          <div className="bg-slate-50 rounded-3xl p-8 border border-slate-200 flex flex-col">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6">基本的</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mb-6">基础版</h3>
             
             <div className="mb-8">
                <h2 className="text-4xl font-bold text-slate-900 mb-2">自由的</h2>
@@ -43,16 +43,13 @@ const Plans: React.FC = () => {
                   <Video size={18} /> 每月 5 个视频
                </li>
                <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Zap size={18} /> 人工智能精彩集锦
+                  <Zap size={18} /> 博客文章集锦
                </li>
                <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <FileText size={18} /> 带文字记录的聊天
+                  <Video size={18} /> 我的学习视频
                </li>
                <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
                   <Check size={18} /> 保存笔记
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700 opacity-50 line-through decoration-slate-400">
-                  <ArrowUpRight size={18} /> 转录翻译
                </li>
             </ul>
 
@@ -78,16 +75,14 @@ const Plans: React.FC = () => {
             
             <div className="mb-8">
                <div className="flex items-baseline gap-2">
-                  <span className="text-slate-400 line-through text-xl">10美元</span>
-                  <h2 className="text-4xl font-bold text-slate-900">8.33美元</h2>
-                  <span className="text-slate-500">/ 月</span>
+                  <h2 className="text-4xl font-bold text-slate-900">199元</h2>
+                  <span className="text-slate-500">/ 年</span>
                </div>
-               <p className="text-slate-500 text-sm mt-2">按年付费，可享两个月免费。</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
                <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Video size={18} /> 每月 100 个视频
+                  <Video size={18} /> 全部视频
                </li>
                <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
                   <Check size={18} /> 从基础到其他一切
@@ -97,7 +92,7 @@ const Plans: React.FC = () => {
                </li>
                <li className="text-blue-600 text-sm font-medium pl-1 pt-2">
                   <a href="#" className="flex items-center gap-1 hover:underline">
-                     <ArrowUpRight size={14} /> 还不顾？只需 3 美元即可观看另外 20 个视频
+                     <ArrowUpRight size={14} /> 可以提供人工专家诊断服务
                   </a>
                </li>
             </ul>

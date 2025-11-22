@@ -20,6 +20,14 @@ export interface BlogPost {
   content: string; // HTML content for the article
 }
 
+export interface IntroVideo {
+  id: string;
+  title: string;
+  url: string;
+  thumbnail: string;
+  isVisible: boolean;
+}
+
 export interface Note {
   id: string;
   timestamp: number; // Seconds

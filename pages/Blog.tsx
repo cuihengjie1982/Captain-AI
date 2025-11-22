@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppRoute, BlogPost } from '../types';
-import { ArrowRight, Clock, ChevronDown, Stethoscope } from 'lucide-react';
-import { getBlogPosts } from '../services/contentService';
+import { AppRoute, BlogPost, IntroVideo } from '../types';
+import { ArrowRight, Clock, ChevronDown, Stethoscope, Play, Pause, Maximize, Minimize, Volume2, VolumeX, Settings } from 'lucide-react';
+import { getBlogPosts, getIntroVideo } from '../services/contentService';
 
 const Blog: React.FC = () => {
   const navigate = useNavigate();
   
   const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
 
   useEffect(() => {
     setPosts(getBlogPosts());
+    const video = getIntroVideo();
+    if (video && video.isVisible) {
+      setIntroVideo(video);
+    }
   }, []);
   
   // Diagnosis Widget State
@@ -24,6 +30,69 @@ const Blog: React.FC = () => {
     });
   };
 
+  // --- Video Player Logic ---
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      const duration = videoRef.current.duration;
+      setProgress((current / duration) * 100);
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const ratio = x / rect.width;
+      videoRef.current.currentTime = ratio * videoRef.current.duration;
+    }
+  };
+
+  const handleToggleFullScreen = () => {
+    if (!playerContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
+
+  const handleSpeedChange = (rate: number) => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+      setPlaybackRate(rate);
+      setShowSpeedMenu(false);
+    }
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto">
       <header className="mb-10">
@@ -33,6 +102,102 @@ const Blog: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         
+        {/* Intro Video Section - 16:9 Aspect Ratio */}
+        {introVideo && introVideo.isVisible && (
+           <div className="col-span-1 md:col-span-2 lg:col-span-3 mb-4">
+              <div 
+                ref={playerContainerRef}
+                className={`relative rounded-2xl overflow-hidden shadow-xl bg-black group w-full ${isFullScreen ? 'fixed inset-0 z-50 h-screen rounded-none' : 'aspect-video'}`}
+              >
+                 <video 
+                   ref={videoRef}
+                   src={introVideo.url}
+                   className="w-full h-full object-cover"
+                   onTimeUpdate={handleTimeUpdate}
+                   onEnded={() => setIsPlaying(false)}
+                   onClick={handlePlayPause}
+                   poster={introVideo.thumbnail}
+                 />
+                 
+                 {/* Center Play Button Overlay */}
+                 {!isPlaying && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
+                      <button 
+                        onClick={handlePlayPause}
+                        className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 hover:scale-105 transition-all shadow-xl border border-white/10"
+                      >
+                         <Play size={32} className="text-white fill-current ml-1" />
+                      </button>
+                   </div>
+                 )}
+
+                 {/* Title Overlay */}
+                 <div className={`absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                    <h3 className="text-white font-bold text-lg">{introVideo.title}</h3>
+                 </div>
+
+                 {/* Controls Bar */}
+                 <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                    {/* Progress Bar */}
+                    <div 
+                      className="w-full h-1.5 bg-white/30 rounded-full mb-4 cursor-pointer hover:h-2 transition-all"
+                      onClick={handleSeek}
+                    >
+                       <div className="h-full bg-blue-500 rounded-full relative" style={{ width: `${progress}%` }}>
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover:scale-100 transition-transform"></div>
+                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-white">
+                       <div className="flex items-center gap-4">
+                          <button onClick={handlePlayPause} className="hover:text-blue-400 transition-colors">
+                             {isPlaying ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current" />}
+                          </button>
+                          
+                          <button onClick={() => {
+                            if(videoRef.current) {
+                               videoRef.current.muted = !isMuted;
+                               setIsMuted(!isMuted);
+                            }
+                          }} className="hover:text-blue-400">
+                             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                          </button>
+                       </div>
+
+                       <div className="flex items-center gap-4">
+                          {/* Speed Control */}
+                          <div className="relative">
+                              <button 
+                                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                                className="px-2 py-1 text-xs font-bold bg-white/10 rounded hover:bg-white/20 transition-colors flex items-center gap-1 min-w-[3rem] justify-center"
+                              >
+                                {playbackRate}x
+                              </button>
+                              {showSpeedMenu && (
+                                <div className="absolute bottom-full right-0 mb-2 bg-black/90 border border-white/10 rounded-lg overflow-hidden flex flex-col text-xs min-w-[80px]">
+                                  {[0.5, 1.0, 1.25, 1.5, 2.0].map(rate => (
+                                    <button
+                                      key={rate}
+                                      onClick={() => handleSpeedChange(rate)}
+                                      className={`px-3 py-2 hover:bg-blue-600/50 text-left ${playbackRate === rate ? 'text-blue-400 font-bold' : 'text-white'}`}
+                                    >
+                                      {rate}x
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
+
+                          <button onClick={handleToggleFullScreen} className="hover:text-blue-400 transition-colors">
+                             {isFullScreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                          </button>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        )}
+
         {/* Interactive Diagnosis Widget */}
         <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
            <div className="flex flex-col md:flex-row">
